@@ -2,7 +2,10 @@ import express from "express"
 import helmet from "helmet"
 import mongoose from "mongoose";
 import * as dotenv from "dotenv"
+import cors from "cors"
 
+import cookieParser from "cookie-parser";
+import authRoutes from "./routes/auth.routes.js"
 
 dotenv.config();
 const app = express()
@@ -40,6 +43,8 @@ const connectDB = () => {
     });
 };
 
+
+app.use("/api/auth",authRoutes);
 
 // default get
 app.get("/health", async (req, res) => {

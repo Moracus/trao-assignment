@@ -1,10 +1,13 @@
 import { Router } from "express";
-import { getMe, login, logout, register } from "../controllers/auth.controller.js";
+import { checkUsername, getMe, login, logout, register } from "../controllers/auth.controller.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = Router()
 
-router.post("/auth/register",register);
-router.post("/auth/login", login)
-router.post("/auth/logout",logout)
-router.get("/auth/me",protect,getMe)
+router.post("/register",register);
+router.post("/login", login)
+router.post("/logout",logout)
+router.get("/me",protect,getMe)
+router.get("/check-username",checkUsername) //?checkusername=
+
+export default router
