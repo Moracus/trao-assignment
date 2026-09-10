@@ -27,3 +27,17 @@ export const createDupHash = (companyUrl, jobDescription) => {
 
   return crypto.createHash("sha256").update(input, "utf8").digest("hex");
 };
+
+export const assignRequirementIds = (requirements) => {
+  return requirements.map((req, index) => ({
+    id: `r${index + 1}`,
+    ...req,
+  }));
+};
+
+export function assignQuestionIds(questions) {
+  return questions.map((q, i) => ({
+    id: `q${i + 1}`,
+    ...q,
+  }));
+}
