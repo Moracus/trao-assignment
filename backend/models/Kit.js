@@ -1,61 +1,173 @@
+// models/Kit.js
+
 import mongoose from "mongoose";
 
-const KitSchema = new mongoose.Schema({
-  title: String,
+const RequirementSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    text: { type: String, required: true },
 
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: false,
+    kind: {
+      type: String,
+      enum: ["technical", "behavioural", "domain"],
+      required: true,
+    },
+
+    priority: {
+      type: String,
+      enum: ["must", "nice"],
+      required: true,
+    },
+
+    knowledge_slug: {
+      type: String,
+      required: true,
+    },
   },
+  { _id: false }
+);
 
-  companyUrl: {
-    type: String,
-    required: true,
+const QuestionSchema = new mongoose.Schema(
+  {
+    id: String,
+
+    requirement_ids: [String],
+
+    category: {
+      type: String,
+      enum: [
+        "technical",
+        "behavioural",
+        "system-design",
+        "company-fit",
+      ],
+    },
+
+    prompt: String,
+    answer_outline: String,
+
+    difficulty: {
+      type: Number,
+      min: 1,
+      max: 3,
+    },
   },
+  { _id: false }
+);
 
-  jobDescription: {
-    type: String,
-    required: true,
+const ScheduleDaySchema = new mongoose.Schema(
+  {
+    day: Number,
+    focus: String,
+    question_ids: [String],
+
+    minutes: {
+      type: Number,
+      min: 1,
+    },
   },
+  { _id: false }
+);
 
-  duplicateHash: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true,
+const KitSchema = new mongoose.Schema(
+  {
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
+    duplicateHash: {
+      type: String,
+      unique: true,
+      required: true,
+      index: true,
+    },
+
+    companyUrl: {
+      type: String,
+      required: true,
+    },
+
+    jobDescription: {
+      type: String,
+      required: true,
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "crawling",
+        "generating",
+        "completed",
+        "failed",
+      ],
+      default: "pending",
+      index: true,
+    },
+
+    source: {
+      company: String,
+      company_url: String,
+      role: String,
+      location: String,
+
+      jd_chars: Number,
+
+      researched_at: Date,
+
+      pages_used: [String],
+    },
+
+    company_brief: {
+      summary: String,
+      what_they_do: String,
+
+      sources: [String],
+    },
+
+    role: {
+      title: String,
+      seniority: String,
+
+      responsibilities: [String],
+
+      requirements: [RequirementSchema],
+    },
+
+    questions: [QuestionSchema],
+
+    schedule: {
+      days_available: Number,
+
+      days: [ScheduleDaySchema],
+    },
+
+    coverage: {
+      uncovered_requirement_ids: {
+        type: [String],
+        default: [],
+      },
+
+      passes: {
+        type: Number,
+        default: 1,
+      },
+    },
+
+    retrievalWarnings: {
+      type: [String],
+      default: [],
+    },
+
+    error: {
+      code: String,
+      message: String,
+    },
   },
-
-  status: {
-    type: String,
-    enum: [
-      "pending",
-      "crawling",
-      "generating",
-      "completed",
-      "failed",
-    ],
-    default: "pending",
-    index: true,
-  },
-
-  appendixA: {
-    type: mongoose.Schema.Types.Mixed,
-    default: null,
-  },
-
-  retrievalWarnings: {
-    type: [String],
-    default: [],
-  },
-
-  error: {
-    code: String,
-    message: String,
-  },
-
-  completedAt: Date,
-
-}, { timestamps: true });
+  { timestamps: true }
+);
 
 export default mongoose.model("Kit", KitSchema);
