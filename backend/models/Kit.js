@@ -163,10 +163,11 @@ const KitSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    progress: {
+    progress: { //kit generation progress
       type: Number,
       default: 0,
     },
+
     data: mongoose.Schema.Types.Mixed,
 
     error: {

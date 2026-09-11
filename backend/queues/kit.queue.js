@@ -1,7 +1,7 @@
 import { Queue } from "bullmq";
-import IORedis from "ioredis";
+import { redis } from "../config/redis.js";
 
-const connection = new IORedis(process.env.REDIS_URL);
+const connection = redis;
 
 export const kitQueue = new Queue("kit-generation", {
   connection,

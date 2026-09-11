@@ -2,8 +2,7 @@ import Kit from "../models/Kit.js";
 import { addKitJob } from "../queues/kit.queue.js";
 import { createDupHash } from "../utils/index.js";
 import { jobRequestSchema } from "../zod/kit.schema.js";
-import { eventEmitter } from "../queues/events.js";
-
+import { subscribeKitUpdates } from "../queues/events.js";
 
 export const createKit = async (req, res) => {
   const parsed = jobRequestSchema.safeParse(req.body);
@@ -35,19 +34,18 @@ export const createKit = async (req, res) => {
   });
 
   await addKitJob({
-    kitId: kit._id,
+    _id: kit._id,
     ...data,
   });
 
   res.status(202).json({
-    kitId: kit._id,
+    _id: kit._id,
     status: "queued",
   });
 };
 
 export const getKits = async (req, res) => {
-  const kits = await Kit.find({ user: req.user.id })
-    .sort({ createdAt: -1 });
+  const kits = await Kit.find({ user: req.user.id }).sort({ createdAt: -1 });
 
   res.json(kits);
 };
@@ -58,8 +56,7 @@ export const getKit = async (req, res) => {
     user: req.user.id,
   });
 
-  if (!kit)
-    return res.sendStatus(404);
+  if (!kit) return res.sendStatus(404);
 
   res.json(kit);
 };
@@ -74,11 +71,10 @@ export const updateKit = async (req, res) => {
     {
       data: req.body.data,
     },
-    { new: true }
+    { new: true },
   );
 
-  if (!kit)
-    return res.sendStatus(404);
+  if (!kit) return res.sendStatus(404);
 
   res.json(kit);
 };
@@ -98,8 +94,7 @@ export const regenerateKit = async (req, res) => {
     user: req.user.id,
   });
 
-  if (!oldKit)
-    return res.sendStatus(404);
+  if (!oldKit) return res.sendStatus(404);
 
   oldKit.status = "queued";
   oldKit.progress = 0;
@@ -117,28 +112,21 @@ export const regenerateKit = async (req, res) => {
   });
 };
 
-
 export const streamKit = async (req, res) => {
   const id = req.params.id;
 
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const unsubscribe = await subscribeKitUpdates((payload) => {
+    if (payload._id !== id) return;
+
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
   });
 
-  const send = (payload) => {
-    res.write(`data: ${JSON.stringify(payload)}\n\n`);
-  };
-
-  const listener = (payload) => {
-    if (payload.kitId === id)
-      send(payload);
-  };
-
-  eventEmitter.on("kit:update", listener);
-
   req.on("close", () => {
-    eventEmitter.off("kit:update", listener);
+    unsubscribe();
+    res.end();
   });
 };

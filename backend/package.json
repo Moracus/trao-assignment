@@ -6,7 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
-    "evaluate": "node scripts/evaluate.js"
+    "evaluate": "node scripts/evaluate.js",
+    "start": "node index.js",
+    "worker": "node worker.js",
+    "dev:worker": "nodemon worker.js"
   },
   "keywords": [],
   "author": "",

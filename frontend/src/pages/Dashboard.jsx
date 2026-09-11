@@ -16,71 +16,156 @@ import {
 
 import CreateKitModal from "../components/modals/CreateKitModal";
 import Button from "../components/ui/Button";
-
-const mockKits = [
-  {
-    id: 1,
-    company: "Google",
-    role: "Frontend Engineer",
-    status: "completed",
-    questions: 48,
-    updated: "2h ago",
-  },
-  {
-    id: 2,
-    company: "Uber",
-    role: "SDE-1",
-    status: "progress",
-    questions: 21,
-    updated: "Yesterday",
-  },
-  {
-    id: 3,
-    company: "Atlassian",
-    role: "Backend Engineer",
-    status: "completed",
-    questions: 36,
-    updated: "3 days ago",
-  },
-  {
-    id: 4,
-    company: "Trao",
-    role: "Software Engineer",
-    status: "progress",
-    questions: 14,
-    updated: "5 min ago",
-  },
-  {
-    id: 5,
-    company: "Swiggy",
-    role: "Full Stack",
-    status: "completed",
-    questions: 52,
-    updated: "Last week",
-  },
-];
+import {
+  connectKitEvents,
+  createKit,
+  deleteKit,
+  getKit,
+  getKits,
+  regenerateKit,
+} from "../api/kits";
+import KitCard from "../components/kit/KitCard";
+import GeneratingCard from "../components/kit/GeneratingCard";
+import { useEffect } from "react";
+import { useRef } from "react";
 
 export default function Dashboard() {
-  const [filter, setFilter] = useState("all");
+  const [kits, setKits] = useState(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [progress, setProgress] = useState(0);
+  const [completed, setCompleted] = useState(0);
+  const [filteredKits, setFilteredKits] = useState([]);
 
-  const kits = useMemo(() => {
-    if (filter === "progress")
-      return mockKits.filter((k) => k.status === "progress");
-    if (filter === "completed")
-      return mockKits.filter((k) => k.status === "completed");
-    return mockKits;
-  }, [filter]);
+  const eventSources = useRef({});
 
-  const completed = mockKits.filter((k) => k.status === "completed").length;
-  const progress = mockKits.filter((k) => k.status === "progress").length;
+  useEffect(() => {
+    if (!kits) {
+      loadKits();
+    }
+  }, [kits]);
+
+  useEffect(() => {
+    if (!kits?.length) return;
+
+    kits.forEach((kit) => {
+      if (kit.status !== "generating" || eventSources.current[kit._id]) {
+        return;
+      }
+
+      const es = connectKitEvents(kit._id, async (data) => {
+        console.log("SSE:", data);
+        if (data.status === "completed") {
+          const realKit = await getKit(kit._id);
+
+          setKits((prev) =>
+            prev?.map((k) => (k._id === kit._id ? realKit : k)),
+          );
+
+          es.close();
+          delete eventSources.current[kit._id];
+        } else {
+          setKits((prev) =>
+            prev?.map((k) =>
+              k._id === kit._id
+                ? {
+                    ...k,
+                    progress: data.progress,
+                    status: data.status,
+                  }
+                : k,
+            ),
+          );
+        }
+      });
+
+      eventSources.current[kit._id] = es;
+    });
+
+    return () => {
+      Object.values(eventSources.current).forEach((es) => es.close());
+      eventSources.current = {};
+    };
+  }, [kits]);
+
+  async function loadKits() {
+    const data = await getKits();
+    setKits(data);
+  }
+
+  async function handleGenerate(payload) {
+    setCreateModalOpen(false);
+
+    const tempId = `temp-${Date.now()}`;
+
+    const optimistic = {
+      _id: tempId,
+      company: new URL(payload.companyUrl).hostname.replace("www.", ""),
+      role: "Generating...",
+      status: "generating",
+      progress: 0,
+    };
+    setKits((prev) => [optimistic, ...(prev ?? [])]);
+
+    try {
+      const job = await createKit(payload);
+
+      setKits((prev) =>
+        prev?.map((k) =>
+          k._id === tempId ? { ...k, _id: job._id, progress: 5 } : k,
+        ),
+      );
+    } catch (err) {
+      setKits((prev) => prev?.filter((k) => k._id !== tempId));
+      console.error(err);
+    }
+  }
+
+  async function deleteOne(id) {
+    await deleteKit(id);
+    setKits((prev) => prev?.length && prev.filter((k) => k._id !== id));
+  }
+
+  async function regenerate(id) {
+    await regenerateKit(id);
+
+    setKits(
+      (prev) =>
+        prev?.length &&
+        prev.map((k) =>
+          k._id === id ? { ...k, status: "generating", progress: 0 } : k,
+        ),
+    );
+  }
+
+  useEffect(() => {
+    filtered();
+  }, [kits, filter]);
+  const filtered = () => {
+    if (!kits) return;
+
+    console.log(kits);
+    const inProgress = kits?.filter((k) => k.status === "progress");
+    const completed = kits?.filter((k) => k.status === "completed");
+    setProgress(inProgress?.length);
+    setCompleted(completed?.length);
+    if (filter === "progress") {
+      setFilteredKits(inProgress);
+    }
+    if (filter === "completed") {
+      setFilteredKits(completed);
+    }
+    if (filter === "all") {
+      setFilteredKits(kits);
+    }
+  };
 
   return (
     <DashboardLayout filter={filter} setFilter={setFilter}>
       <CreateKitModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onGenerate={(data) => console.log(data)}
+        onGenerate={(data) => handleGenerate(data)}
       />
       <div className="space-y-6">
         {/* Hero */}
@@ -105,7 +190,7 @@ export default function Dashboard() {
         <div className="grid gap-4 md:grid-cols-3">
           <StatCard
             title="Total Kits"
-            value={mockKits.length}
+            value={kits?.length ? kits?.length : 0}
             icon={<WorkOutlineRounded />}
           />
           <StatCard
@@ -125,7 +210,7 @@ export default function Dashboard() {
           <div>
             <h2 className="text-xl font-semibold">My Kits</h2>
             <p className="text-sm text-muted">
-              {kits.length} kit{kits.length !== 1 && "s"} found
+              {kits?.length} kit{kits?.length !== 1 && "s"} found
             </p>
           </div>
 
@@ -139,12 +224,25 @@ export default function Dashboard() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          {kits.map((kit) => (
-            <KitCard key={kit.id} kit={kit} />
-          ))}
+          {filteredKits?.map((kit) =>
+            kit.status === "generating" ? (
+              <GeneratingCard
+                key={kit._id}
+                company={kit.company}
+                progress={kit.progress}
+              />
+            ) : (
+              <KitCard
+                key={kit._id}
+                kit={kit}
+                onDelete={deleteOne}
+                onRegenerate={regenerate}
+              />
+            ),
+          )}
         </div>
 
-        {kits.length === 0 && (
+        {filteredKits?.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-14">
               <WorkOutlineRounded
@@ -173,41 +271,6 @@ function StatCard({ title, value, icon }) {
         </div>
 
         <div className="rounded-2xl bg-surface-2 p-3">{icon}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function KitCard({ kit }) {
-  return (
-    <Card className="transition-all hover:-translate-y-0.5 hover:shadow-md">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle>{kit.company}</CardTitle>
-            <p className="mt-1 text-sm text-muted">{kit.role}</p>
-          </div>
-
-          <Badge variant={kit.status === "completed" ? "success" : "warning"}>
-            {kit.status === "completed" ? "Completed" : "In Progress"}
-          </Badge>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        <div className="mb-5 flex items-center justify-between text-sm">
-          <span className="text-muted">Questions</span>
-          <span className="font-semibold">{kit.questions}</span>
-        </div>
-
-        <div className="mb-5 flex items-center justify-between text-sm">
-          <span className="text-muted">Last Updated</span>
-          <span>{kit.updated}</span>
-        </div>
-
-        <Button className="w-full" variant="outline">
-          Open Kit
-        </Button>
       </CardContent>
     </Card>
   );
