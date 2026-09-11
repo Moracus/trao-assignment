@@ -40,8 +40,11 @@ export async function buildKit({
   //   owner,
   companyUrl,
   jobDescription,
-  location="",
   daysAvailable,
+  progress = async (status, progress) => {
+    (status, progress);
+  },
+  location = "",
 }) {
   const duplicateHash = hash(companyUrl, jobDescription);
 
@@ -49,32 +52,34 @@ export async function buildKit({
 
   if (existing) return existing;
 
-  const company = new URL(companyUrl).hostname
+  const company = new URL(companyUrl).hostname;
 
   /* ------------------------ 1. Website Retrieval ------------------------ */
-
+  await progress("crawling", 15);
   const retrieval = await retrieve(companyUrl);
-  console.log("retrieving")
 
   if (!retrieval.ok) throw new Error(retrieval.error);
 
   /* ------------------------ 2. Extract Role ----------------------------- */
+  await progress("generating", 45);
 
   const role = await extractRole(jobDescription);
-  console.log("extracting")
+  console.log("extracting");
 
   const requirements = assignRequirementIds(role.requirements);
-  console.log("requirements")
+  console.log("requirements");
 
   /* ------------------------ 3. Company Brief ---------------------------- */
 
   const companyBrief = await generateCompanyBrief(retrieval.pages);
-  console.log("company brief")
+  console.log("company brief");
 
   /* ------------------------ 4–6. Questions ----------------------------- */
 
+await progress("generating", 75);
+
   const questionResult = await buildQuestionSet(requirements, companyBrief);
-  console.log("gen questions")
+  console.log("gen questions");
 
   const questions = assignQuestionIds(questionResult.questions);
 
@@ -90,9 +95,10 @@ export async function buildKit({
   const finalFlashcards = assignFlashcardIds(flashcards);
 
   /* ------------------------ 8. Schedule ------------------------------- */
+  await progress("generating", 90);
 
   const schedule = buildSchedule(daysAvailable, questions, requirements);
-  console.log("Scheduled")
+  console.log("Scheduled");
 
   /* --------------------- Appendix A JSON ------------------------------ */
 
@@ -172,10 +178,11 @@ export async function buildKit({
         knowledge_slug: knowledgeMap.get(r.id) ?? "general",
       })),
     },
-    schedule:schedule,
+    schedule: schedule,
 
     retrievalWarnings: retrieval.warnings,
   });
+  await progress("completed", 100);
 
   return validated;
 }
@@ -206,4 +213,3 @@ const jd =
 // });
 // Pretty-prints with a 2-space indentation
 // console.log(JSON.stringify(res, null, 2));
-

@@ -15,7 +15,7 @@ const RequirementSchema = new mongoose.Schema(
 
     priority: {
       type: String,
-      enum: ["must", "nice","should"],
+      enum: ["must", "nice", "should"],
       required: true,
     },
 
@@ -72,7 +72,7 @@ const ScheduleDaySchema = new mongoose.Schema(
 
 const KitSchema = new mongoose.Schema(
   {
-    owner: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: false,
@@ -98,7 +98,14 @@ const KitSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "crawling", "generating", "completed", "failed"],
+      enum: [
+        "pending",
+        "queued",
+        "crawling",
+        "generating",
+        "completed",
+        "failed",
+      ],
       default: "pending",
       index: true,
     },
@@ -156,6 +163,11 @@ const KitSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    progress: {
+      type: Number,
+      default: 0,
+    },
+    data: mongoose.Schema.Types.Mixed,
 
     error: {
       code: String,

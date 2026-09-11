@@ -111,4 +111,4 @@ export async function retrieve(url) {
   };
 }
 
-console.log(await retrieve("https://uber.com"));
+// console.log(await retrieve("https://uber.com"));
