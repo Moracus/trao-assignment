@@ -4,7 +4,7 @@ import { withRetry } from "./retry.js";
 
 const RequirementSchema = z.object({
   text: z.string().min(2),
-  kind: z.enum(["technical", "experience", "education", "soft-skill"]),
+  kind: z.enum(["technical", "experience", "education", "soft-skill","others"]),
   priority: z.enum(["must", "should", "nice"]),
 });
 
@@ -56,7 +56,7 @@ const JSON_SCHEMA = {
             text: { type: "string" },
             kind: {
               type: "string",
-              enum: ["technical", "experience", "education", "soft-skill"],
+              enum: ["technical", "experience", "education", "soft-skill","others"],
             },
             priority: {
               type: "string",

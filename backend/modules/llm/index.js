@@ -10,6 +10,6 @@ We are looking for a Full Stack Engineer with:
 - Strong communication skills
 `;
 
-const result = await extractRequirements(jd);
+// const result = await extractRequirements(jd);
 
-console.log(result);
+// console.log(result);

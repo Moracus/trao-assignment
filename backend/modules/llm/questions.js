@@ -7,7 +7,13 @@ import { findCoverageGaps } from "../deterministic/coverage.js";
 
 const QuestionSchema = z.object({
   requirement_ids: z.array(z.string()),
-  category: z.enum(["technical", "behavioral", "experience", "system-design"]),
+  category: z.enum([
+    "technical",
+    "behavioural",
+    "system-design",
+    "company-fit",
+    "others"
+  ]),
   prompt: z.string(),
   answer_outline: z.string(),
   difficulty: z.number().int().min(1).max(3),
@@ -36,7 +42,13 @@ const JSON_SCHEMA = {
             },
             category: {
               type: "string",
-              enum: ["technical", "behavioral", "experience", "system-design"],
+              enum: [
+                "technical",
+                "behavioural",
+                "system-design",
+                "company-fit",
+                "others"
+              ],
             },
             prompt: { type: "string" },
             answer_outline: { type: "string" },
@@ -137,10 +149,6 @@ const companyBrief = {
   what_they_do: "Develop internal productivity platforms.",
 };
 
-
-
-
-
 export async function buildQuestionSet(requirements, companyBrief) {
   const allQuestions = [];
 
@@ -152,11 +160,9 @@ export async function buildQuestionSet(requirements, companyBrief) {
 
   // Pass 2 (only missing requirements)
   if (uncovered.length > 0) {
-    const secondPass = await generateQuestions(
-      requirements,
-      companyBrief,
-      { onlyIds: uncovered }
-    );
+    const secondPass = await generateQuestions(requirements, companyBrief, {
+      onlyIds: uncovered,
+    });
 
     allQuestions.push(...secondPass);
 
@@ -172,9 +178,5 @@ export async function buildQuestionSet(requirements, companyBrief) {
   };
 }
 
-console.log("gpting...");
-console.log(await buildQuestionSet(requirements, companyBrief));
-
-
-
-
+// console.log("gpting...");
+// console.log(await buildQuestionSet(requirements, companyBrief));

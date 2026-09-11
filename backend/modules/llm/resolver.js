@@ -1,11 +1,8 @@
+// modules/llm/resolver.js
+
 import { z } from "zod";
 import { openai, MODEL } from "./openai.js";
 import { withRetry } from "./retry.js";
-
-const CardSchema = z.object({
-  front: z.string(),
-  back: z.string(),
-});
 
 const OutputSchema = z.object({
   slug: z.string(),
@@ -23,14 +20,14 @@ const OutputSchema = z.object({
     "general",
   ]),
   aliases: z.array(z.string()),
-  cards: z.array(CardSchema).length(3),
 });
 
 const JSON_SCHEMA = {
-  name: "knowledge_flashcards",
+  name: "knowledge_resolver",
   strict: true,
   schema: {
     type: "object",
+    additionalProperties: false,
     properties: {
       slug: { type: "string" },
       title: { type: "string" },
@@ -53,39 +50,29 @@ const JSON_SCHEMA = {
         type: "array",
         items: { type: "string" },
       },
-      cards: {
-        type: "array",
-        minItems: 3,
-        maxItems: 3,
-        items: {
-          type: "object",
-          properties: {
-            front: { type: "string" },
-            back: { type: "string" },
-          },
-          required: ["front", "back"],
-          additionalProperties: false,
-        },
-      },
     },
-    required: ["slug", "title", "category", "aliases", "cards"],
-    additionalProperties: false,
+    required: ["slug", "title", "category", "aliases"],
   },
 };
 
-export async function generateFlashcards(requirement) {
-  const response = await withRetry(() =>
+export async function resolveKnowledge(requirement) {
+  const res = await withRetry(() =>
     openai.responses.create({
       model: MODEL,
       input: [
         {
           role: "system",
           content: `
-Extract the core knowledge topic and create exactly 3 interview flashcards.
+Normalize software engineering requirements into ONE reusable knowledge topic.
 
-Return one reusable knowledge object.
-Use kebab-case slug.
-Do not include requirement IDs.
+Examples:
+"3+ years of React" -> react
+"TypeScript, React & Next.js" -> react
+"REST APIs with Express" -> express
+"Unit testing using Jest" -> jest
+
+Return only one canonical topic.
+Slug must be lowercase kebab-case.
           `,
         },
         {
@@ -102,17 +89,5 @@ Do not include requirement IDs.
     }),
   );
 
-  return OutputSchema.parse(JSON.parse(response.output_text));
+  return OutputSchema.parse(JSON.parse(res.output_text));
 }
-
-const requirement = 
-  {
-    id: "r1",
-    text: "React",
-    kind: "technical",
-    priority: "must",
-  }
-
-// console.log("gpting")
-// console.log(await generateFlashcards(requirement))
-

@@ -3,8 +3,8 @@ import { z } from "zod";
 export const Requirement = z.object({
   id: z.string(),
   text: z.string(),
-  kind: z.enum(["technical","behavioural","domain"]),
-  priority: z.enum(["must","nice"]),
+  kind: z.enum(["technical", "experience", "education", "soft-skill","others"]),
+  priority: z.enum(["must", "should", "nice"]),
 });
 
 export const Question = z.object({
@@ -15,6 +15,7 @@ export const Question = z.object({
     "behavioural",
     "system-design",
     "company-fit",
+    "others"
   ]),
   prompt: z.string(),
   answer_outline: z.string(),

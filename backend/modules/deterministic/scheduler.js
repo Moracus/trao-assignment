@@ -1,27 +1,29 @@
-
+// deterministic/schedule.js
 
 const QUESTION_MINUTES = {
-  1: 20, // easy
-  2: 30, // medium
-  3: 40, // hard
+  1: 20,
+  2: 30,
+  3: 40,
 };
 
-const CATEGORY_WEIGHT = { //0 is the highest priority
+const CATEGORY_WEIGHT = {
   technical: 0,
-  system_design: 1,
-  experience: 2,
-  behavioral: 3,
+  "system-design": 1,
+  "company-fit": 2,
+  behavioural: 3,
 };
 
 export function buildSchedule(daysAvailable, questions, requirements) {
-  if (daysAvailable < 1) throw new Error("daysAvailable must be >= 1");
+  if (daysAvailable < 1) {
+    throw new Error("daysAvailable must be >= 1");
+  }
 
   const reqMap = new Map(requirements.map(r => [r.id, r]));
 
-  // Sort by priority → category → difficulty
+  // Highest priority + hardest first
   const ordered = [...questions].sort((a, b) => {
-    const pa = highestPriority(a, reqMap);
-    const pb = highestPriority(b, reqMap);
+    const pa = priorityScore(a, reqMap);
+    const pb = priorityScore(b, reqMap);
 
     if (pa !== pb) return pa - pb;
 
@@ -33,40 +35,89 @@ export function buildSchedule(daysAvailable, questions, requirements) {
     return b.difficulty - a.difficulty;
   });
 
-  const buckets = Array.from({ length: daysAvailable }, () => []);
+  const totalMinutes = ordered.reduce(
+    (sum, q) => sum + QUESTION_MINUTES[q.difficulty],
+    0
+  );
 
-  // Even distribution (round robin)
-  ordered.forEach((q, i) => {
-    buckets[i % daysAvailable].push(q);
-  });
+  const targetPerDay = Math.ceil(totalMinutes / daysAvailable);
 
-  const days = buckets.map((items, i) => ({
-    day: i + 1,
-    questions: items.map(q => q.id),
-    minutes: items.reduce(
-      (sum, q) => sum + (QUESTION_MINUTES[q.difficulty] || 30),
-      0
-    ),
-  }));
+  const days = [];
+  let current = [];
+  let currentMinutes = 0;
+  let dayNumber = 1;
+
+  for (const q of ordered) {
+    const qMinutes = QUESTION_MINUTES[q.difficulty];
+
+    const shouldAdvance =
+      dayNumber < daysAvailable &&
+      current.length > 0 &&
+      currentMinutes + qMinutes > targetPerDay;
+
+    if (shouldAdvance) {
+      days.push(makeDay(dayNumber, current, currentMinutes, reqMap));
+      dayNumber++;
+      current = [];
+      currentMinutes = 0;
+    }
+
+    current.push(q);
+    currentMinutes += qMinutes;
+  }
+
+  while (dayNumber <= daysAvailable) {
+    if (dayNumber === days.length + 1) {
+      days.push(makeDay(dayNumber, current, currentMinutes, reqMap));
+      current = [];
+      currentMinutes = 0;
+    } else {
+      days.push({
+        day: dayNumber,
+        focus: "Revision",
+        question_ids: [],
+        minutes: 0,
+      });
+    }
+    dayNumber++;
+  }
 
   return {
-    total_days: daysAvailable,
-    total_questions: questions.length,
+    days_available: daysAvailable,
     days,
   };
 }
 
-function highestPriority(question, reqMap) {
-  let best = 2; // nice
+function makeDay(day, questions, minutes, reqMap) {
+  return {
+    day,
+    focus: deriveFocus(questions, reqMap),
+    question_ids: questions.map(q => q.id),
+    minutes,
+  };
+}
 
-  for (const id of question.requirement_ids) {
-    const req = reqMap.get(id);
+function priorityScore(question, reqMap) {
+  const reqs = question.requirement_ids
+    .map(id => reqMap.get(id))
+    .filter(Boolean);
 
-    if (!req) continue;
+  return reqs.some(r => r.priority === "must") ? 0 : 1;
+}
 
-    if (req.priority === "must") best = Math.min(best, 0);
-    else if (req.priority === "should") best = Math.min(best, 1);
+function deriveFocus(questions, reqMap) {
+  if (questions.length === 0) return "Revision";
+
+  const counts = {};
+
+  for (const q of questions) {
+    for (const id of q.requirement_ids) {
+      const req = reqMap.get(id);
+      if (!req) continue;
+
+      counts[req.text] = (counts[req.text] || 0) + 1;
+    }
   }
 
-  return best;
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
 }

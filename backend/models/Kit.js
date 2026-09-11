@@ -9,13 +9,13 @@ const RequirementSchema = new mongoose.Schema(
 
     kind: {
       type: String,
-      enum: ["technical", "behavioural", "domain"],
+      enum: ["technical", "experience", "education", "soft-skill", "others"],
       required: true,
     },
 
     priority: {
       type: String,
-      enum: ["must", "nice"],
+      enum: ["must", "nice","should"],
       required: true,
     },
 
@@ -24,7 +24,7 @@ const RequirementSchema = new mongoose.Schema(
       required: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const QuestionSchema = new mongoose.Schema(
@@ -40,6 +40,7 @@ const QuestionSchema = new mongoose.Schema(
         "behavioural",
         "system-design",
         "company-fit",
+        "others",
       ],
     },
 
@@ -52,7 +53,7 @@ const QuestionSchema = new mongoose.Schema(
       max: 3,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const ScheduleDaySchema = new mongoose.Schema(
@@ -63,10 +64,10 @@ const ScheduleDaySchema = new mongoose.Schema(
 
     minutes: {
       type: Number,
-      min: 1,
+      min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const KitSchema = new mongoose.Schema(
@@ -74,7 +75,7 @@ const KitSchema = new mongoose.Schema(
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
       index: true,
     },
 
@@ -97,13 +98,7 @@ const KitSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "pending",
-        "crawling",
-        "generating",
-        "completed",
-        "failed",
-      ],
+      enum: ["pending", "crawling", "generating", "completed", "failed"],
       default: "pending",
       index: true,
     },
@@ -167,7 +162,7 @@ const KitSchema = new mongoose.Schema(
       message: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Kit", KitSchema);

@@ -1,65 +1,87 @@
 import Knowledge from "../../models/Knowledge.js";
 import Flashcard from "../../models/Flashcard.js";
+
+import { resolveKnowledge } from "../llm/resolver.js";
 import { generateFlashcards } from "../llm/flashcards.js";
 
+import mongoose from "mongoose";
+
 export async function getFlashcardsForRequirement(requirement) {
-  // 1. Try exact slug via aliases
-  const existing = await Knowledge.findOne({
-    $or: [
-      { title: new RegExp(`^${requirement.text}$`, "i") },
-      { aliases: requirement.text.toLowerCase() },
-      { slug: requirement.text.toLowerCase().replace(/\s+/g, "-") },
-    ],
-  });
+  const topic = await resolveKnowledge(requirement);
 
-  if (existing) {
-    console.log("cahche-hit")
-    const cards = await Flashcard.find({
-      knowledge_slug: existing.slug,
-    }).lean();
-
-    return cards.map((card) => ({
-      front: card.front,
-      back: card.back,
-      knowledge_slug: existing.slug,
-      requirement_ids: [requirement.id],
-    }));
-  }
-  console.log("cache miss")
-
-  // 2. Generate new knowledge
-  const generated = await generateFlashcards(requirement);
-
-  await Knowledge.create({
-    slug: generated.slug,
-    title: generated.title,
-    category: generated.category,
-    aliases: generated.aliases,
-  });
-
-  await Flashcard.insertMany(
-    generated.cards.map((card) => ({
-      knowledge_slug: generated.slug,
-      front: card.front,
-      back: card.back,
-    }))
+  const result = await Knowledge.findOneAndUpdate(
+    { slug: topic.slug },
+    {
+      $setOnInsert: {
+        title: topic.title,
+        category: topic.category,
+        aliases: topic.aliases,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+      includeResultMetadata: true,
+    },
   );
 
-  return generated.cards.map((card) => ({
+  const knowledge = result.value;
+  const isNew = !result.lastErrorObject.updatedExisting;
+
+  if (isNew) {
+    console.log("cache miss");
+
+    const generated = await generateFlashcards(topic);
+
+    await Flashcard.insertMany(
+      generated.cards.map((card) => ({
+        knowledge_slug: topic.slug,
+        front: card.front,
+        back: card.back,
+      })),
+    );
+  } else {
+    console.log("cache hit");
+  }
+
+  const cards = await Flashcard.find({
+    knowledge_slug: topic.slug,
+  }).lean();
+
+  return cards.map((card) => ({
     front: card.front,
     back: card.back,
-    knowledge_slug: generated.slug,
+    knowledge_slug: topic.slug,
     requirement_ids: [requirement.id],
   }));
 }
 
-const requirement = 
-  {
-    id: "r1",
-    text: "React",
-    kind: "technical",
-    priority: "must",
-  }
 
-console.log("gpting")
-console.log(await getFlashcardsForRequirement(requirement))
+//testing
+
+// const connectDB = async () => {
+//   try {
+//     mongoose.set("strictQuery", true);
+
+//     await mongoose.connect(process.env.MONGO_URI, {
+//       dbName: "test",
+//     });
+
+//     console.log("MongoDB connected");
+//   } catch (err) {
+//     console.error("Failed to connect");
+//     console.error(err);
+//     process.exit(1);
+//   }
+// };
+
+// await connectDB();
+
+// const requirement = {
+//   id: "r2",
+//   text: "2+ years in React",
+//   kind: "technical",
+//   priority: "must",
+// };
+//  console.log("gpting")
+//  console.log(await getFlashcardsForRequirement(requirement))
