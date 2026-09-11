@@ -1,4 +1,4 @@
-export default function Button({ children, ...props }) {
+ const Button =({ children, ...props })=> {
   return (
     <button
       {...props}
@@ -8,3 +8,8 @@ export default function Button({ children, ...props }) {
     </button>
   );
 }
+
+export default Button;
+
+
+

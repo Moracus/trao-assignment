@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect } from "../middleware/auth.js";
+import { protect } from "../middleware/authMiddleware.js";
 import * as kit from "../controllers/kit.controller.js";
 
 const router = Router();

@@ -1,11 +1,15 @@
-import { Queue } from "bullmq";
-import IORedis from "ioredis";
+import { EventEmitter } from "events";
 
-const connection = new IORedis(process.env.REDIS_URL);
+export const eventEmitter = new EventEmitter();
 
-export const kitQueue = new Queue("kit-generation", {
-  connection,
-});
-
-export const addKitJob = (data) =>
-  kitQueue.add("generate", data);
+export const emitKitUpdate = (
+  kitId,
+  status,
+  progress
+) => {
+  eventEmitter.emit("kit:update", {
+    kitId: String(kitId),
+    status,
+    progress,
+  });
+};

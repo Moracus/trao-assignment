@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import Kit from "../models/Kit.js";
 import { buildKit } from "../modules/pipeline/buildkits.js";
-import { emitKitUpdate } from "./events.js";
+import { emitKitUpdate } from "./kit.queue.js";
 
 new Worker(
   "kit-generation",
