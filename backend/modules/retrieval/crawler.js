@@ -2,7 +2,7 @@
 
 const DEFAULTS = {
   timeout: 8000, // 8 seconds
-  maxSize: 5*1024 * 1024, // 1 MB
+  maxSize: 5*1024 * 1024, // 5MB
   userAgent: "NodeCrawler/1.0",
 };
 
@@ -77,7 +77,6 @@ export async function crawl(inputUrl, options = {}) {
       };
     }
 
-    // Read with 1 MB limit
     const reader = res.body?.getReader();
     if (!reader) {
       return {
@@ -98,10 +97,11 @@ export async function crawl(inputUrl, options = {}) {
       total += value.byteLength;
 
       if (total > config.maxSize) {
+        console.log("size limit exceeded")
         await reader.cancel();
         return {
           ok: false,
-          error: "Response exceeds 1 MB limit",
+          error: "Response exceeds max size limit",
           status: res.status,
           url: res.url,
         };

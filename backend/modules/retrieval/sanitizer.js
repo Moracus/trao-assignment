@@ -3,31 +3,26 @@ import * as cheerio from "cheerio";
 export function sanitize(html, baseUrl) {
   const $ = cheerio.load(html);
 
-  // Remove non-content elements
-  $("script, style, noscript, svg, nav, footer").remove();
-
   const title = $("title").text().trim() || null;
 
-  const text = $("body")
-    .text()
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 3000); // token budget
-
+  // -------- PASS 1: Extract links BEFORE removing footer/nav --------
   const seen = new Set();
   const links = [];
 
   $("a[href]").each((_, el) => {
     const href = $(el).attr("href");
+    if (!href) return;
+
     const anchor = $(el).text().replace(/\s+/g, " ").trim();
 
     try {
       const absolute = new URL(href, baseUrl);
 
-      // same origin only
+      // only crawl same origin
       if (absolute.origin !== new URL(baseUrl).origin) return;
 
-      // normalize trailing slash
+      // remove hash + normalize trailing slash
+      absolute.hash = "";
       const normalized = absolute.href.replace(/\/$/, "");
 
       if (seen.has(normalized)) return;
@@ -38,9 +33,18 @@ export function sanitize(html, baseUrl) {
         anchor,
       });
     } catch {
-      // ignore malformed links
+      // ignore malformed URLs
     }
   });
+
+  // -------- PASS 2: Clean DOM ONLY for text extraction --------
+  $("script, style, noscript, svg, nav, footer").remove();
+
+  const text = $("body")
+    .text()
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 3000);
 
   return { title, text, links };
 }
