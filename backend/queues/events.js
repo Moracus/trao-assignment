@@ -3,13 +3,15 @@ import { redis } from "../config/redis.js";
 const pub = redis.duplicate();
 const sub = redis.duplicate();
 
-export const emitKitUpdate = async (_id, status, progress) => {
+export const emitKitUpdate = async (_id, status, progress, section = null, data = null) => {
   await pub.publish(
     "kit:update",
     JSON.stringify({
       _id: String(_id),
       status,
       progress,
+      ...(section ? { section } : {}),
+      ...(data ? { data } : {}),
     })
   );
 };

@@ -3,8 +3,9 @@ import { Badge } from "../ui/Badge";
 import { Card, CardHeader, CardTitle } from "../ui/Card";
 import Button from "../ui/Button";
 
-function KitCard({ kit, onRegenerate, onDelete }) {
+function KitCard({ kit, onOpen, onRegenerate, onDelete }) {
   const localDate = new Date(kit?.updatedAt);
+
   return (
     <Card className="transition-all hover:-translate-y-0.5 hover:shadow-md">
       <CardHeader>
@@ -43,7 +44,7 @@ function KitCard({ kit, onRegenerate, onDelete }) {
           <span>{localDate.toLocaleString()}</span>
         </div>
 
-        <Button className="w-full" variant="outline">
+        <Button className="w-full" variant="outline" onClick={() => onOpen?.(kit._id)}>
           Open Kit
         </Button>
 

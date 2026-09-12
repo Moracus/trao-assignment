@@ -29,6 +29,7 @@ const RequirementSchema = new mongoose.Schema(
 const QuestionSchema = new mongoose.Schema(
   {
     id: String,
+    order: Number,
 
     requirement_ids: [String],
 
@@ -51,6 +52,51 @@ const QuestionSchema = new mongoose.Schema(
       min: 1,
       max: 3,
     },
+
+    generated: {
+      type: Boolean,
+      default: true,
+    },
+    edited: {
+      type: Boolean,
+      default: false,
+    },
+    pinned: {
+      type: Boolean,
+      default: false,
+    },
+    deleted: {
+      type: Boolean,
+      default: false,
+    },
+    updatedAt: Date,
+  },
+  { _id: false },
+);
+
+const FlashcardSchema = new mongoose.Schema(
+  {
+    id: String,
+    front: String,
+    back: String,
+    requirement_ids: [String],
+    generated: {
+      type: Boolean,
+      default: true,
+    },
+    edited: {
+      type: Boolean,
+      default: false,
+    },
+    pinned: {
+      type: Boolean,
+      default: false,
+    },
+    deleted: {
+      type: Boolean,
+      default: false,
+    },
+    updatedAt: Date,
   },
   { _id: false },
 );
@@ -131,8 +177,15 @@ const KitSchema = new mongoose.Schema(
     company_brief: {
       summary: String,
       what_they_do: String,
-
       sources: [String],
+      edited: {
+        summary: { type: Boolean, default: false },
+        what_they_do: { type: Boolean, default: false },
+      },
+      pinned: {
+        type: Boolean,
+        default: false,
+      },
     },
 
     role: {
@@ -145,6 +198,8 @@ const KitSchema = new mongoose.Schema(
     },
 
     questions: [QuestionSchema],
+
+    flashcards: [FlashcardSchema],
 
     schedule: {
       days_available: Number,
@@ -162,6 +217,8 @@ const KitSchema = new mongoose.Schema(
         type: Number,
         default: 1,
       },
+      score: Number, // 0-100
+      last_checked: Date,
     },
 
     retrievalWarnings: {

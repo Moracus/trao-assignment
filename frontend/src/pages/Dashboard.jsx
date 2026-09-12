@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from ".././components/layout/DashboardLayout";
 import {
   Card,
@@ -31,6 +32,7 @@ import { useRef } from "react";
 import FailedKitCard from "./FailedKitCard";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [kits, setKits] = useState(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -135,6 +137,10 @@ export default function Dashboard() {
     );
   }
 
+  function openKit(id) {
+    navigate(`/builder/${id}`);
+  }
+
   const filteredKits = useMemo(() => {
     const inProgressK =
       kits?.filter((k) => k.status !== "completed" && k.status !== "failed") ??
@@ -217,6 +223,7 @@ export default function Dashboard() {
               <KitCard
                 key={kit._id}
                 kit={kit}
+                onOpen={openKit}
                 onDelete={deleteOne}
                 onRegenerate={regenerate}
               />

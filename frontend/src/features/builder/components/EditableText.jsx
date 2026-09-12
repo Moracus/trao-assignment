@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function EditableText({
   value,
@@ -7,34 +7,42 @@ export default function EditableText({
   className = "",
   placeholder = "",
 }) {
-  const [text, setText] = useState(value);
+  const [text, setText] = useState(value ?? "");
+  const timerRef = useRef(null);
 
-  useEffect(() => setText(value), [value]);
+  useEffect(() => setText(value ?? ""), [value]);
 
-  const save = () => {
-    if (text !== value) onSave(text);
+  const save = (nextText = text) => {
+    if (nextText !== value) onSave(nextText);
+  };
+
+  const handleChange = (nextText) => {
+    setText(nextText);
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    timerRef.current = setTimeout(() => {
+      save(nextText);
+    }, 500);
+  };
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const commonProps = {
+    value: text,
+    placeholder,
+    onChange: (e) => handleChange(e.target.value),
+    onBlur: () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      save();
+    },
+    className: `w-full border-none bg-transparent outline-none ${className}`,
   };
 
   if (multiline) {
-    return (
-      <textarea
-        rows={4}
-        value={text}
-        placeholder={placeholder}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={save}
-        className={`w-full resize-none border-none bg-transparent outline-none ${className}`}
-      />
-    );
+    return <textarea rows={4} {...commonProps} className={`w-full resize-none border-none bg-transparent outline-none ${className}`} />;
   }
 
-  return (
-    <input
-      value={text}
-      placeholder={placeholder}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={save}
-      className={`w-full border-none bg-transparent outline-none ${className}`}
-    />
-  );
+  return <input {...commonProps} />;
 }

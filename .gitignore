@@ -1,3 +1,5 @@
 */node_modules
 */.env
 
+*.ds_Store
+result.txt

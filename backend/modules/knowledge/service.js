@@ -4,7 +4,6 @@ import Flashcard from "../../models/Flashcard.js";
 import { resolveKnowledge } from "../llm/resolver.js";
 import { generateFlashcards } from "../llm/flashcards.js";
 
-import mongoose from "mongoose";
 
 export async function getFlashcardsForRequirement(requirement) {
   const topic = await resolveKnowledge(requirement);
