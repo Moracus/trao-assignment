@@ -1,8 +1,9 @@
-import { Navigate,Route,Routes} from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import BuilderPage from "./pages/BuilderPage.jsx";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -29,6 +30,7 @@ const App = () => {
           </Protected>
         }
       />
+      <Route path="/builder/:kitId" element={<BuilderPage />} />
     </Routes>
   );
 };

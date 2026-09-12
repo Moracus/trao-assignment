@@ -60,7 +60,7 @@ export async function buildKit({
   if (!retrieval.ok) throw new Error(retrieval.error);
 
   /* ------------------------ 2. Extract Role ----------------------------- */
-  await progress("generating", 45);
+  await progress("extracting_role", 45);
 
   const role = await extractRole(jobDescription);
   console.log("extracting");
@@ -75,7 +75,7 @@ export async function buildKit({
 
   /* ------------------------ 4–6. Questions ----------------------------- */
 
-  await progress("generating", 75);
+  await progress("building_questions", 75);
 
   const questionResult = await buildQuestionSet(requirements, companyBrief);
   console.log("gen questions");
@@ -86,6 +86,7 @@ export async function buildKit({
 
   const flashcards = [];
 
+  await progress("generating_flashcards", 85)
   for (const requirement of requirements) {
     const cards = await getFlashcardsForRequirement(requirement);
     flashcards.push(...cards);
@@ -94,7 +95,7 @@ export async function buildKit({
   const finalFlashcards = assignFlashcardIds(flashcards);
 
   /* ------------------------ 8. Schedule ------------------------------- */
-  await progress("generating", 90);
+  await progress("building_schedule", 90);
 
   const schedule = buildSchedule(daysAvailable, questions, requirements);
   console.log("Scheduled");

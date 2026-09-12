@@ -2,8 +2,8 @@
 
 const DEFAULTS = {
   timeout: 8000, // 8 seconds
-  maxSize: 5*1024 * 1024, // 5MB
-  userAgent: "NodeCrawler/1.0",
+  maxSize: 5 * 1024 * 1024, // 5MB
+  userAgent: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://google.com)",
 };
 
 /**
@@ -97,7 +97,7 @@ export async function crawl(inputUrl, options = {}) {
       total += value.byteLength;
 
       if (total > config.maxSize) {
-        console.log("size limit exceeded")
+        console.log("size limit exceeded");
         await reader.cancel();
         return {
           ok: false,
@@ -117,9 +117,15 @@ export async function crawl(inputUrl, options = {}) {
       url: res.url,
     };
   } catch (err) {
+    console.log("Error crawling", err);
     return {
       ok: false,
-      error: err.name === "AbortError" ? "Request timed out" : err.message,
+      error:
+        err.name === "AbortError"
+          ? "Request timed out"
+          : err.cause?.code === "ENOTFOUND"
+            ? `DNS lookup failed for ${err.cause.hostname}`
+            : err.message,
       status: null,
       url: null,
     };

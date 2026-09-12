@@ -1,7 +1,7 @@
 import { Card, CardContent } from "../ui/Card";
 
 
-export default function GeneratingCard({ company, progress }) {
+export default function GeneratingCard({ company, progress,status="generating" }) {
   return (
     <Card>
       <CardContent className="space-y-4 p-6">
@@ -13,7 +13,7 @@ export default function GeneratingCard({ company, progress }) {
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
             <span>{progress}%</span>
-            <span className="text-muted">Generating</span>
+            <span className="text-muted">{status}</span>
           </div>
 
           <div className="h-2 overflow-hidden rounded-full bg-surface-2">

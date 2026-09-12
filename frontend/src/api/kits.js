@@ -44,7 +44,6 @@ export const connectKitEvents = (id, onMessage) => {
   });
 
   es.onmessage = (event) => {
-    console.log(event.data)
     onMessage(JSON.parse(event.data));
   };
 

@@ -21,7 +21,6 @@ const RequirementSchema = new mongoose.Schema(
 
     knowledge_slug: {
       type: String,
-      required: true,
     },
   },
   { _id: false },
@@ -85,6 +84,9 @@ const KitSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    company: {
+      type: String,
+    },
 
     companyUrl: {
       type: String,
@@ -102,7 +104,10 @@ const KitSchema = new mongoose.Schema(
         "pending",
         "queued",
         "crawling",
-        "generating",
+        "extracting_role",
+        "building_questions",
+        "generating_flashcards",
+        "building_schedule",
         "completed",
         "failed",
       ],
@@ -163,7 +168,8 @@ const KitSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    progress: { //kit generation progress
+    progress: {
+      //kit generation progress
       type: Number,
       default: 0,
     },

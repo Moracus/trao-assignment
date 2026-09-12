@@ -28,14 +28,15 @@ import KitCard from "../components/kit/KitCard";
 import GeneratingCard from "../components/kit/GeneratingCard";
 import { useEffect } from "react";
 import { useRef } from "react";
+import FailedKitCard from "./FailedKitCard";
 
 export default function Dashboard() {
   const [kits, setKits] = useState(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [filter, setFilter] = useState("all");
   const [progress, setProgress] = useState(0);
-  const [completed, setCompleted] = useState(0);
-  const [filteredKits, setFilteredKits] = useState([]);
+  const [completedKits, setCompletedKits] = useState(0);
+  const [inProgressKits, setInProgressKits] = useState(0);
 
   const eventSources = useRef({});
 
@@ -49,30 +50,24 @@ export default function Dashboard() {
     if (!kits?.length) return;
 
     kits.forEach((kit) => {
-      if (kit.status !== "generating" || eventSources.current[kit._id]) {
-        return;
-      }
+      if (kit.status === "completed") return;
+      if (eventSources.current[kit._id]) return;
 
       const es = connectKitEvents(kit._id, async (data) => {
-        console.log("SSE:", data);
         if (data.status === "completed") {
           const realKit = await getKit(kit._id);
+          setProgress(data.progress);
 
-          setKits((prev) =>
-            prev?.map((k) => (k._id === kit._id ? realKit : k)),
-          );
+          setKits((prev) => prev.map((k) => (k._id === kit._id ? realKit : k)));
 
           es.close();
           delete eventSources.current[kit._id];
         } else {
+          setProgress(data.progress);
           setKits((prev) =>
-            prev?.map((k) =>
+            prev.map((k) =>
               k._id === kit._id
-                ? {
-                    ...k,
-                    progress: data.progress,
-                    status: data.status,
-                  }
+                ? { ...k, progress: data.progress, status: data.status }
                 : k,
             ),
           );
@@ -81,12 +76,13 @@ export default function Dashboard() {
 
       eventSources.current[kit._id] = es;
     });
+  }, [kits]);
 
+  useEffect(() => {
     return () => {
       Object.values(eventSources.current).forEach((es) => es.close());
-      eventSources.current = {};
     };
-  }, [kits]);
+  }, []);
 
   async function loadKits() {
     const data = await getKits();
@@ -102,9 +98,10 @@ export default function Dashboard() {
       _id: tempId,
       company: new URL(payload.companyUrl).hostname.replace("www.", ""),
       role: "Generating...",
-      status: "generating",
-      progress: 0,
+      status: "progress",
+      progress: 5,
     };
+
     setKits((prev) => [optimistic, ...(prev ?? [])]);
 
     try {
@@ -138,27 +135,18 @@ export default function Dashboard() {
     );
   }
 
-  useEffect(() => {
-    filtered();
-  }, [kits, filter]);
-  const filtered = () => {
-    if (!kits) return;
+  const filteredKits = useMemo(() => {
+    const inProgressK =
+      kits?.filter((k) => k.status !== "completed" && k.status !== "failed") ??
+      [];
+    const completedK = kits?.filter((k) => k.status === "completed") ?? [];
+    setCompletedKits(completedK?.length);
+    setInProgressKits(inProgressK?.length);
 
-    console.log(kits);
-    const inProgress = kits?.filter((k) => k.status === "progress");
-    const completed = kits?.filter((k) => k.status === "completed");
-    setProgress(inProgress?.length);
-    setCompleted(completed?.length);
-    if (filter === "progress") {
-      setFilteredKits(inProgress);
-    }
-    if (filter === "completed") {
-      setFilteredKits(completed);
-    }
-    if (filter === "all") {
-      setFilteredKits(kits);
-    }
-  };
+    if (filter === "progress") return inProgressKits;
+    if (filter === "completed") return completedKits;
+    return kits ?? [];
+  }, [kits, filter]);
 
   return (
     <DashboardLayout filter={filter} setFilter={setFilter}>
@@ -195,12 +183,12 @@ export default function Dashboard() {
           />
           <StatCard
             title="In Progress"
-            value={progress}
+            value={inProgressKits}
             icon={<ScheduleRounded />}
           />
           <StatCard
             title="Completed"
-            value={completed}
+            value={completedKits}
             icon={<CheckCircleRounded />}
           />
         </div>
@@ -225,18 +213,26 @@ export default function Dashboard() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           {filteredKits?.map((kit) =>
-            kit.status === "generating" ? (
-              <GeneratingCard
-                key={kit._id}
-                company={kit.company}
-                progress={kit.progress}
-              />
-            ) : (
+            kit.status === "completed" ? (
               <KitCard
                 key={kit._id}
                 kit={kit}
                 onDelete={deleteOne}
                 onRegenerate={regenerate}
+              />
+            ) : kit.status === "failed" ? (
+              <FailedKitCard
+                key={kit._id}
+                kit={kit}
+                onDelete={deleteOne}
+                onRegenerate={regenerate}
+              />
+            ) : (
+              <GeneratingCard
+                key={kit._id}
+                status={kit.status}
+                company={kit.company}
+                progress={kit.progress}
               />
             ),
           )}
