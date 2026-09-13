@@ -3,6 +3,7 @@ import BuilderSidebar from "./BuilderSidebar";
 
 export default function BuilderLayout({
   kit,
+  kitId,
   children,
   dirty,
   regenerating,
@@ -19,12 +20,14 @@ export default function BuilderLayout({
         regenerating={regenerating}
         onRegenerate={onRegenerate}
         onFullKitRegenerate={onFullKitRegenerate}
+        cooldownRemaining={kit?.cooldownRemaining ?? 0}
       />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <BuilderSidebar
           active={activeSection}
           onChange={onSectionChange}
+          kitId={kitId}
         />
 
         <main className="flex-1 overflow-y-auto bg-gray-50 p-6">

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import DashboardLayout from ".././components/layout/DashboardLayout";
 import {
   Card,
@@ -30,6 +31,7 @@ import GeneratingCard from "../components/kit/GeneratingCard";
 import { useEffect } from "react";
 import { useRef } from "react";
 import FailedKitCard from "./FailedKitCard";
+import { getErrorMessage } from "../utils/companyUrl";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -55,21 +57,31 @@ export default function Dashboard() {
       if (eventSources.current[kit._id]) return;
 
       const es = connectKitEvents(kit._id, async (data) => {
-        if (data.status === "completed") {
-          const realKit = await getKit(kit._id);
+        try {
+          if (data.status === "completed") {
+            const realKit = await getKit(kit._id);
 
-          setKits((prev) => prev.map((k) => (k._id === kit._id ? realKit : k)));
+            setKits((prev) =>
+              prev?.map((k) => (k._id === kit._id ? realKit : k)) ?? [realKit],
+            );
 
-          es.close();
-          delete eventSources.current[kit._id];
-        } else {
+            es.close();
+            delete eventSources.current[kit._id];
+            return;
+          }
+
           setKits((prev) =>
-            prev.map((k) =>
+            prev?.map((k) =>
               k._id === kit._id
                 ? { ...k, progress: data.progress, status: data.status }
                 : k,
-            ),
+            ) ?? prev,
           );
+        } catch (error) {
+          console.error(`Kit event stream error for ${kit._id}:`, error);
+          toast.error("We couldn’t refresh the kit status. Please try again.");
+          es.close();
+          delete eventSources.current[kit._id];
         }
       });
 
@@ -79,23 +91,37 @@ export default function Dashboard() {
 
   useEffect(() => {
     return () => {
-      Object.values(eventSources.current).forEach((es) => es.close());
+      Object.values(eventSources.current).forEach((es) => es?.close?.());
     };
   }, []);
 
   async function loadKits() {
-    const data = await getKits();
-    setKits(data);
+    try {
+      const data = await getKits();
+      setKits(data);
+    } catch (error) {
+      console.error("Failed to load kits:", error);
+      setKits([]);
+      toast.error(getErrorMessage(error, "Failed to load your kits."));
+    }
   }
 
   async function handleGenerate(payload) {
     setCreateModalOpen(false);
 
     const tempId = `temp-${Date.now()}`;
+    let companyName = "Company";
+
+    try {
+      const hostname = new URL(payload.companyUrl).hostname.replace("www.", "");
+      companyName = hostname;
+    } catch {
+      companyName = "Company";
+    }
 
     const optimistic = {
       _id: tempId,
-      company: new URL(payload.companyUrl).hostname.replace("www.", ""),
+      company: companyName,
       role: "Generating...",
       status: "progress",
       progress: 5,
@@ -109,29 +135,44 @@ export default function Dashboard() {
       setKits((prev) =>
         prev?.map((k) =>
           k._id === tempId ? { ...k, _id: job._id, progress: 5 } : k,
-        ),
+        ) ?? [],
       );
+
+      toast.success("Interview kit is being generated.");
     } catch (err) {
-      setKits((prev) => prev?.filter((k) => k._id !== tempId));
-      console.error(err);
+      setKits((prev) => prev?.filter((k) => k._id !== tempId) ?? []);
+      console.error("Create kit failed:", err);
+      toast.error(getErrorMessage(err, "Failed to generate the interview kit."));
     }
   }
 
   async function deleteOne(id) {
-    await deleteKit(id);
-    setKits((prev) => prev?.length && prev.filter((k) => k._id !== id));
+    try {
+      await deleteKit(id);
+      setKits((prev) => prev?.filter((k) => k._id !== id) ?? []);
+      toast.success("Kit deleted.");
+    } catch (error) {
+      console.error("Delete kit failed:", error);
+      toast.error(getErrorMessage(error, "Failed to delete the kit."));
+    }
   }
 
   async function regenerate(id) {
-    await regenerateKit(id);
+    try {
+      await regenerateKit(id);
 
-    setKits(
-      (prev) =>
-        prev?.length &&
-        prev.map((k) =>
-          k._id === id ? { ...k, status: "generating", progress: 0 } : k,
-        ),
-    );
+      setKits(
+        (prev) =>
+          prev?.map((k) =>
+            k._id === id ? { ...k, status: "generating", progress: 0 } : k,
+          ) ?? [],
+      );
+
+      toast.info("Regenerating the kit...");
+    } catch (error) {
+      console.error("Regenerate kit failed:", error);
+      toast.error(getErrorMessage(error, "Failed to regenerate the kit."));
+    }
   }
 
   function openKit(id) {
@@ -143,15 +184,21 @@ export default function Dashboard() {
       kits?.filter((k) => k.status !== "completed" && k.status !== "failed") ??
       [];
     const completedK = kits?.filter((k) => k.status === "completed") ?? [];
-    setCompletedKits(completedK?.length);
-    setInProgressKits(inProgressK?.length);
 
-    if (filter === "progress"){
-        return inProgressK
-    };
+    if (filter === "progress") return inProgressK;
     if (filter === "completed") return completedK;
     return kits ?? [];
   }, [kits, filter]);
+
+  useEffect(() => {
+    const inProgressK =
+      kits?.filter((k) => k.status !== "completed" && k.status !== "failed") ??
+      [];
+    const completedK = kits?.filter((k) => k.status === "completed") ?? [];
+
+    setCompletedKits(completedK.length);
+    setInProgressKits(inProgressK.length);
+  }, [kits]);
 
   return (
     <DashboardLayout filter={filter} setFilter={setFilter}>

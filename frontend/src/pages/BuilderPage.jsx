@@ -3,7 +3,10 @@ import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { connectKitEvents, getKit, regenerateKit } from "../api/kits";
 import BuilderLayout from "../features/builder/BuilderLayout";
-import useBuilder, { mergeCompanyBrief, mergeGeneratedSection } from "../features/builder/hooks/useBuilder";
+import useBuilder, {
+  mergeCompanyBrief,
+  mergeGeneratedSection,
+} from "../features/builder/hooks/useBuilder";
 import CompanyBriefSection from "../features/builder/sections/CompanyBriefSection";
 import CoverageSection from "../features/builder/sections/CoverageSection";
 import FlashcardsSection from "../features/builder/sections/FlashcardsSection";
@@ -30,7 +33,8 @@ const emptyKit = {
   },
 };
 
-const normalizeBuilderSection = (section) => (section === "brief" ? "companyBrief" : section);
+const normalizeBuilderSection = (section) =>
+  section === "brief" ? "companyBrief" : section;
 const BUILDER_REGEN_STORAGE_KEY = "builder-regeneration-state";
 const REGEN_COOLDOWN_MS = 5000;
 
@@ -75,13 +79,21 @@ const applySectionResult = (current, section, payload) => {
   }
 
   if (section === "flashcards") {
-    const flashcards = Array.isArray(result.flashcards) ? result.flashcards : [];
-    next.flashcards = mergeGeneratedSection(current?.flashcards ?? [], flashcards);
+    const flashcards = Array.isArray(result.flashcards)
+      ? result.flashcards
+      : [];
+    next.flashcards = mergeGeneratedSection(
+      current?.flashcards ?? [],
+      flashcards,
+    );
   }
 
   if (section === "companyBrief") {
     const incoming = result.company_brief ?? result.companyBrief ?? {};
-    const merged = mergeCompanyBrief(current?.company_brief ?? current?.companyBrief ?? {}, incoming);
+    const merged = mergeCompanyBrief(
+      current?.company_brief ?? current?.companyBrief ?? {},
+      incoming,
+    );
     next.company_brief = merged;
     next.companyBrief = merged;
   }
@@ -91,7 +103,10 @@ const applySectionResult = (current, section, payload) => {
   }
 
   if (section === "coverage") {
-    next.coverage = { ...(current?.coverage ?? {}), ...(result.coverage ?? {}) };
+    next.coverage = {
+      ...(current?.coverage ?? {}),
+      ...(result.coverage ?? {}),
+    };
   }
 
   return next;
@@ -126,7 +141,8 @@ export default function BuilderPage() {
 
     const stored = readStoredBuilderState(kitId);
     if (stored.activeSection) setActiveSection(stored.activeSection);
-    if (stored.regeneratingSection) setRegeneratingSection(stored.regeneratingSection);
+    if (stored.regeneratingSection)
+      setRegeneratingSection(stored.regeneratingSection);
     if (stored.cooldownUntil) setCooldownUntil(stored.cooldownUntil);
 
     refreshKit();
@@ -144,7 +160,11 @@ export default function BuilderPage() {
 
   useEffect(() => {
     if (!kitId) return;
-    writeStoredBuilderState(kitId, { activeSection, regeneratingSection, cooldownUntil });
+    writeStoredBuilderState(kitId, {
+      activeSection,
+      regeneratingSection,
+      cooldownUntil,
+    });
   }, [kitId, activeSection, regeneratingSection, cooldownUntil]);
 
   useEffect(() => {
@@ -157,23 +177,45 @@ export default function BuilderPage() {
       const currentSection = normalizeBuilderSection(activeSection);
 
       if (payloadSection && payloadSection === currentSection) {
-        const nextState = payload.status === "completed" ? null : payloadSection;
+        const nextState =
+          payload.status === "completed" ? null : payloadSection;
         setRegeneratingSection(nextState);
         writeStoredBuilderState(kitId, { regeneratingSection: nextState });
       }
 
       if (payload.status === "completed" && payloadSection === currentSection) {
-        setKitData((current) => applySectionResult(current, payloadSection, payload.data || payload.result || payload));
+        setKitData((current) =>
+          applySectionResult(
+            current,
+            payloadSection,
+            payload.data || payload.result || payload,
+          ),
+        );
         setRegeneratingSection(null);
         setCooldownUntil(Date.now() + REGEN_COOLDOWN_MS);
-        writeStoredBuilderState(kitId, { regeneratingSection: null, cooldownUntil: Date.now() + REGEN_COOLDOWN_MS });
-        toast.success(`${payloadSection === "companyBrief" ? "Company brief" : payloadSection} regenerated successfully.`);
+        writeStoredBuilderState(kitId, {
+          regeneratingSection: null,
+          cooldownUntil: Date.now() + REGEN_COOLDOWN_MS,
+        });
+        toast.success(
+          `${payloadSection === "companyBrief" ? "Company brief" : payloadSection} regenerated successfully.`,
+        );
       }
 
       if (payload.status === "failed") {
         setRegeneratingSection(null);
         writeStoredBuilderState(kitId, { regeneratingSection: null });
-        toast.error(`Regeneration failed for ${payloadSection || "this section"}. You can retry or regenerate the full kit.`);
+        if (payloadSection === "companyBrief") {
+          toast.error(
+            `Company Brief are not meant to regenerate, you can edt or regenerate the full kit.`,
+          );
+        }else{
+          console.log(payloadSection)
+          toast.error(
+          `Regeneration failed for ${payloadSection || "this section"}. You can retry or regenerate the full kit.`,
+        );
+        }
+        
       }
     });
 
@@ -183,40 +225,56 @@ export default function BuilderPage() {
   }, [kitId, activeSection]);
 
   const isWithinCooldown = now < cooldownUntil;
+  const cooldownRemaining = Math.max(0, cooldownUntil - now);
 
   const handleRegenerate = async (fallbackFullKit = false) => {
     if (!kitId) return;
     const section = normalizeBuilderSection(activeSection);
 
     if (regeneratingSection) {
-      toast.info(`A ${regeneratingSection} regeneration is already in progress.`);
+      toast.info(
+        `A ${regeneratingSection} regeneration is already in progress.`,
+      );
       return;
     }
 
     if (isWithinCooldown) {
-      toast.info("Please wait a moment before regenerating this section again.");
+      toast.info(
+        "Please wait a moment before regenerating this section again.",
+      );
       return;
     }
 
     if (fallbackFullKit) {
-      const confirmed = window.confirm("Regenerate the full kit? This will refresh the full Builder content.");
+      const confirmed = window.confirm(
+        "Regenerate the full kit? This will refresh the full Builder content.",
+      );
       if (!confirmed) return;
     }
 
     setRegeneratingSection(fallbackFullKit ? "full" : section);
-    writeStoredBuilderState(kitId, { regeneratingSection: fallbackFullKit ? "full" : section });
+    writeStoredBuilderState(kitId, {
+      regeneratingSection: fallbackFullKit ? "full" : section,
+    });
 
     try {
       await regenerateKit(kitId, fallbackFullKit ? "full" : section);
-      toast.info(fallbackFullKit ? "Full kit regeneration queued." : `${section} regeneration queued.`);
+      toast.info(
+        fallbackFullKit
+          ? "Full kit regeneration queued."
+          : `${section} regeneration queued.`,
+      );
     } catch (error) {
       console.error("Failed to regenerate kit", error);
       setRegeneratingSection(null);
       writeStoredBuilderState(kitId, { regeneratingSection: null });
-      toast.error("Regeneration could not start. Try again or regenerate the full kit.", {
-        autoClose: 6000,
-        closeOnClick: false,
-      });
+      toast.error(
+        "Regeneration could not start. Try again or regenerate the full kit.",
+        {
+          autoClose: 6000,
+          closeOnClick: false,
+        },
+      );
     }
   };
 
@@ -225,7 +283,8 @@ export default function BuilderPage() {
 
   return (
     <BuilderLayout
-      kit={{ ...emptyKit, ...kitData, ...builder.kit }}
+      kit={{ ...emptyKit, ...kitData, ...builder.kit, cooldownRemaining }}
+      kitId={kitId}
       dirty={builder.dirty}
       regenerating={isRegenerating}
       activeSection={activeSection}
@@ -240,23 +299,53 @@ export default function BuilderPage() {
               brief={builder.companyBrief}
               updateBrief={builder.updateCompanyBrief}
               saveState={builder.saveState}
-              regenerating={isRegenerating && regeneratingSection === "companyBrief"}
+              regenerating={
+                isRegenerating && regeneratingSection === "companyBrief"
+              }
             />
           );
         }
 
         if (section === "questions") {
-          return <QuestionsSection {...builder} regenerating={isRegenerating && regeneratingSection === "questions"} />;
+          return (
+            <QuestionsSection
+              {...builder}
+              regenerating={
+                isRegenerating && regeneratingSection === "questions"
+              }
+            />
+          );
         }
 
         if (section === "flashcards") {
-          return <FlashcardsSection {...builder} regenerating={isRegenerating && regeneratingSection === "flashcards"} />;
+          return (
+            <FlashcardsSection
+              {...builder}
+              regenerating={
+                isRegenerating && regeneratingSection === "flashcards"
+              }
+            />
+          );
         }
         if (section === "schedule") {
-          return <ScheduleSection {...builder} regenerating={isRegenerating && regeneratingSection === "schedule"} />;
+          return (
+            <ScheduleSection
+              {...builder}
+              regenerating={
+                isRegenerating && regeneratingSection === "schedule"
+              }
+            />
+          );
         }
         if (section === "coverage") {
-          return <CoverageSection {...builder} regenerating={isRegenerating && regeneratingSection === "coverage"} />;
+          return (
+            <CoverageSection
+              {...builder}
+              regenerating={
+                isRegenerating && regeneratingSection === "coverage"
+              }
+            />
+          );
         }
 
         return <div>Coming soon</div>;

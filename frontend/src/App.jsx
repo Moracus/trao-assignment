@@ -4,6 +4,7 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import BuilderPage from "./pages/BuilderPage.jsx";
+import PracticePage from "./pages/PracticePage.jsx";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ const App = () => {
         }
       />
       <Route path="/builder/:kitId" element={<BuilderPage />} />
+      <Route path="/builder/:kitId/practice" element={<PracticePage />} />
     </Routes>
   );
 };
