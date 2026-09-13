@@ -2,11 +2,12 @@ import bcrypt from "bcrypt";
 import User from "../models/User.js";
 import { createToken } from "../utils/index.js";
 
-const cookieOptions = {
+export const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 1000 * 60 * 60 * 24 * 7,
+  path: "/",
 };
 
 export const register = async (req, res) => {
