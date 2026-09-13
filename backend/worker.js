@@ -147,7 +147,11 @@ new Worker(
           progress: 100,
           data: result,
           source: result.source,
-          company_brief: result.company_brief,
+          company_brief: {
+            ...(result.company_brief ?? {}),
+            edited: { summary: false, what_they_do: false },
+            pinned: false,
+          },
           role: result.role,
           retrievalWarnings: result.retrievalWarnings ?? [],
           ...result,

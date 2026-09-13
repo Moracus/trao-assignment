@@ -209,13 +209,12 @@ export default function BuilderPage() {
           toast.error(
             `Company Brief are not meant to regenerate, you can edt or regenerate the full kit.`,
           );
-        }else{
-          console.log(payloadSection)
+        } else {
+          console.log(payloadSection);
           toast.error(
-          `Regeneration failed for ${payloadSection || "this section"}. You can retry or regenerate the full kit.`,
-        );
+            `Regeneration failed for ${payloadSection || "this section"}. You can retry or regenerate the full kit.`,
+          );
         }
-        
       }
     });
 
@@ -258,6 +257,12 @@ export default function BuilderPage() {
     });
 
     try {
+      if (section === "companyBrief") {
+        toast.info(
+          "company brief are not meant to regenerate, you can only edit this",
+        );
+        return;
+      }
       await regenerateKit(kitId, fallbackFullKit ? "full" : section);
       toast.info(
         fallbackFullKit
@@ -275,6 +280,9 @@ export default function BuilderPage() {
           closeOnClick: false,
         },
       );
+    } finally {
+      setRegeneratingSection(null);
+      writeStoredBuilderState(kitId, { regeneratingSection: null });
     }
   };
 

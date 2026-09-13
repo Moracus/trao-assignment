@@ -115,6 +115,29 @@ const ScheduleDaySchema = new mongoose.Schema(
   { _id: false },
 );
 
+const normalizeCompanyBrief = (value) => {
+  if (!value || typeof value !== "object") {
+    return {
+      summary: "",
+      what_they_do: "",
+      sources: [],
+      edited: { summary: false, what_they_do: false },
+      pinned: false,
+    };
+  }
+
+  return {
+    summary: value.summary ?? "",
+    what_they_do: value.what_they_do ?? "",
+    sources: Array.isArray(value.sources) ? value.sources : [],
+    edited: {
+      summary: Boolean(value.edited?.summary ?? false),
+      what_they_do: Boolean(value.edited?.what_they_do ?? false),
+    },
+    pinned: Boolean(value.pinned ?? false),
+  };
+};
+
 const KitSchema = new mongoose.Schema(
   {
     user: {
@@ -240,5 +263,23 @@ const KitSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+KitSchema.pre("save", function normalizeBriefBeforeSave() {
+  if (this.company_brief) {
+    this.company_brief = normalizeCompanyBrief(this.company_brief);
+  }
+
+  if (!this.company_brief) {
+    this.company_brief = normalizeCompanyBrief({
+      summary: "",
+      what_they_do: "",
+      sources: [],
+      edited: { summary: false, what_they_do: false },
+      pinned: false,
+    });
+  }
+
+  // next();
+});
 
 export default mongoose.model("Kit", KitSchema);

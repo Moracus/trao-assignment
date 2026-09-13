@@ -7,7 +7,6 @@ import { subscribeKitUpdates } from "../queues/events.js";
 const VALID_REGEN_SECTIONS = new Set([
   "questions",
   "flashcards",
-  "companyBrief",
   "brief",
   "schedule",
   "coverage",
@@ -419,13 +418,25 @@ export const updateCompanyBrief = async (req, res) => {
     if (!kit) return res.sendStatus(404);
 
     const patch = req.body || {};
+    const currentBrief = {
+      summary: String(kit.company_brief?.summary ?? ""),
+      what_they_do: String(kit.company_brief?.what_they_do ?? ""),
+      sources: Array.isArray(kit.company_brief?.sources) ? kit.company_brief.sources : [],
+      edited: {
+        summary: !!(kit.company_brief?.edited?.summary),
+        what_they_do: !!(kit.company_brief?.edited?.what_they_do),
+      },
+      pinned: !!(kit.company_brief?.pinned),
+    };
+
     const nextBrief = {
-      ...(kit.company_brief || {}),
+      ...currentBrief,
       ...patch,
       edited: {
-        summary: patch.summary !== undefined ? true : !!(kit.company_brief?.edited?.summary),
-        what_they_do: patch.what_they_do !== undefined ? true : !!(kit.company_brief?.edited?.what_they_do),
+        summary: patch.summary !== undefined ? true : currentBrief.edited.summary,
+        what_they_do: patch.what_they_do !== undefined ? true : currentBrief.edited.what_they_do,
       },
+      pinned: !!(kit.company_brief?.pinned),
     };
 
     if (patch.summary !== undefined) nextBrief.summary = patch.summary;

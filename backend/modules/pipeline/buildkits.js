@@ -285,6 +285,11 @@ export async function buildKit({
 
   return {
     ...validated,
+    company_brief: {
+      ...validated.company_brief,
+      edited: { summary: false, what_they_do: false },
+      pinned: false,
+    },
     retrievalWarnings: warnings,
   };
 }
