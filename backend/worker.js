@@ -83,7 +83,18 @@ const buildSectionResult = async (kit, section, daysAvailable) => {
   }
 
   if (normalizedSection === "companyBrief") {
-    throw new Error("SECTION_REGEN_UNSUPPORTED: companyBrief requires stored retrieval data and is intentionally not falling back to a full-kit regenerate");
+    const fallbackBrief = {
+      summary: "",
+      what_they_do: "couldn't rgenrate, edit or regenerate",
+      sources: Array.isArray(kit.company_brief?.sources) ? kit.company_brief.sources : [],
+    };
+
+    return {
+      company_brief: {
+        ...(kit.company_brief ?? {}),
+        ...fallbackBrief,
+      },
+    };
   }
 
   throw new Error(`Unsupported section: ${section}`);
@@ -138,6 +149,7 @@ new Worker(
           source: result.source,
           company_brief: result.company_brief,
           role: result.role,
+          retrievalWarnings: result.retrievalWarnings ?? [],
           ...result,
         });
 
@@ -170,6 +182,12 @@ new Worker(
       if (sectionResult.flashcards) {
         kit.flashcards = sectionResult.flashcards;
       }
+      if (sectionResult.company_brief) {
+        kit.company_brief = {
+          ...(kit.company_brief ?? {}),
+          ...sectionResult.company_brief,
+        };
+      }
       if (sectionResult.coverage) {
         kit.coverage = {
           ...kit.coverage,
@@ -183,6 +201,10 @@ new Worker(
           days_available: daysAvailable ?? kit.schedule?.days_available ?? 14,
           days: sectionResult.schedule.days ?? [],
         };
+      }
+
+      if (sectionResult.retrievalWarnings) {
+        kit.retrievalWarnings = sectionResult.retrievalWarnings;
       }
 
       kit.status = "completed";

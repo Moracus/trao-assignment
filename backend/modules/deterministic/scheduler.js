@@ -14,14 +14,25 @@ const CATEGORY_WEIGHT = {
 };
 
 export function buildSchedule(daysAvailable, questions, requirements) {
-  if (daysAvailable < 1) {
-    throw new Error("daysAvailable must be >= 1");
+  const safeDays = Number.isFinite(daysAvailable) ? Math.max(1, Number(daysAvailable)) : 1;
+  const safeQuestions = Array.isArray(questions) ? questions : [];
+  const safeRequirements = Array.isArray(requirements) ? requirements : [];
+
+  if (safeQuestions.length === 0) {
+    return {
+      days_available: safeDays,
+      days: Array.from({ length: safeDays }, (_, index) => ({
+        day: index + 1,
+        focus: "Revision",
+        question_ids: [],
+        minutes: 0,
+      })),
+    };
   }
 
-  const reqMap = new Map(requirements.map(r => [r.id, r]));
+  const reqMap = new Map(safeRequirements.map((r) => [r.id, r]));
 
-  // Highest priority + hardest first
-  const ordered = [...questions].sort((a, b) => {
+  const ordered = [...safeQuestions].sort((a, b) => {
     const pa = priorityScore(a, reqMap);
     const pb = priorityScore(b, reqMap);
 
@@ -37,10 +48,10 @@ export function buildSchedule(daysAvailable, questions, requirements) {
 
   const totalMinutes = ordered.reduce(
     (sum, q) => sum + QUESTION_MINUTES[q.difficulty],
-    0
+    0,
   );
 
-  const targetPerDay = Math.ceil(totalMinutes / daysAvailable);
+  const targetPerDay = Math.ceil(totalMinutes / safeDays);
 
   const days = [];
   let current = [];
@@ -51,13 +62,13 @@ export function buildSchedule(daysAvailable, questions, requirements) {
     const qMinutes = QUESTION_MINUTES[q.difficulty];
 
     const shouldAdvance =
-      dayNumber < daysAvailable &&
+      dayNumber < safeDays &&
       current.length > 0 &&
       currentMinutes + qMinutes > targetPerDay;
 
     if (shouldAdvance) {
       days.push(makeDay(dayNumber, current, currentMinutes, reqMap));
-      dayNumber++;
+      dayNumber += 1;
       current = [];
       currentMinutes = 0;
     }
@@ -66,7 +77,7 @@ export function buildSchedule(daysAvailable, questions, requirements) {
     currentMinutes += qMinutes;
   }
 
-  while (dayNumber <= daysAvailable) {
+  while (dayNumber <= safeDays) {
     if (dayNumber === days.length + 1) {
       days.push(makeDay(dayNumber, current, currentMinutes, reqMap));
       current = [];
@@ -79,11 +90,11 @@ export function buildSchedule(daysAvailable, questions, requirements) {
         minutes: 0,
       });
     }
-    dayNumber++;
+    dayNumber += 1;
   }
 
   return {
-    days_available: daysAvailable,
+    days_available: safeDays,
     days,
   };
 }

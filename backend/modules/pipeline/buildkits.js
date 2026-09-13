@@ -1,160 +1,290 @@
-import Kit from "../../models/Kit.js";
-import Flashcard from "../../models/Flashcard.js";
 import { AppendixASchema } from "../../zod/appendixKit.schema.js";
-
-import { retrieve } from ".././retrieval/index.js";
-import { extractRole } from ".././llm/extractor.js";
-import { generateCompanyBrief } from ".././llm/company.js";
-
-import { buildQuestionSet } from ".././llm/questions.js";
-import { getFlashcardsForRequirement } from ".././knowledge/service.js";
-
+import { retrieve } from "../retrieval/index.js";
+import { extractRole } from "../llm/extractor.js";
+import { generateCompanyBrief } from "../llm/company.js";
+import { buildQuestionSet } from "../llm/questions.js";
+import { getFlashcardsForRequirement } from "../knowledge/service.js";
 import { buildSchedule } from "../deterministic/scheduler.js";
 
-import crypto from "crypto";
-import { normalizeJobDescription } from "../../utils/index.js";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-dotenv.config();
-function hash(companyUrl, jd) {
-  return crypto
-    .createHash("sha256")
-    .update(companyUrl + jd)
-    .digest("hex");
-}
+const GENERATION_PLACEHOLDER = "couldn't generate, edit or regenerate";
 
-const assignRequirementIds = (reqs) =>
-  reqs.map((r, i) => ({ id: `r${i + 1}`, ...r }));
-
-const assignQuestionIds = (qs) => qs.map((q, i) => ({ id: `q${i + 1}`, ...q }));
-
-const assignFlashcardIds = (cards) =>
-  cards.map((c, i) => ({
-    id: `f${i + 1}`,
-    front: c.front,
-    back: c.back,
-    requirement_ids: c.requirement_ids,
+const assignRequirementIds = (reqs = []) =>
+  reqs.map((r, i) => ({
+    id: r.id ?? `r${i + 1}`,
+    text: String(r.text ?? "").trim(),
+    kind: r.kind ?? "others",
+    priority: r.priority ?? "nice",
   }));
+
+const assignQuestionIds = (qs = []) =>
+  qs.map((q, i) => ({
+    id: q.id ?? `q${i + 1}`,
+    requirement_ids: Array.isArray(q.requirement_ids) ? q.requirement_ids : [],
+    category: q.category ?? "technical",
+    prompt: String(q.prompt ?? "").trim(),
+    answer_outline: String(q.answer_outline ?? "").trim(),
+    difficulty: Number.isInteger(q.difficulty) ? q.difficulty : 1,
+  }));
+
+const assignFlashcardIds = (cards = []) =>
+  cards.map((c, i) => ({
+    id: c.id ?? `f${i + 1}`,
+    front: String(c.front ?? "").trim(),
+    back: String(c.back ?? "").trim(),
+    requirement_ids: Array.isArray(c.requirement_ids) ? c.requirement_ids : [],
+  }));
+
+const fallbackRequirementsFromText = (jobDescription = "") => {
+  const text = String(jobDescription || "");
+  const tokens = [
+    { pattern: /node\.?js|nodejs/i, text: "Node.js", kind: "technical", priority: "must" },
+    { pattern: /react|next\.?js|javascript|typescript/i, text: "React / TypeScript", kind: "technical", priority: "must" },
+    { pattern: /sql|postgres|database/i, text: "Database design and querying", kind: "technical", priority: "nice" },
+    { pattern: /aws|cloud|kubernetes|docker/i, text: "Cloud and deployment experience", kind: "technical", priority: "nice" },
+    { pattern: /lead|mentor|ownership|cross[- ]functional/i, text: "Stakeholder communication and mentorship", kind: "soft-skill", priority: "nice" },
+    { pattern: /system design|architecture/i, text: "System design", kind: "technical", priority: "must" },
+    { pattern: /product|ux|user|customer/i, text: "User-centric product thinking", kind: "experience", priority: "nice" },
+  ];
+
+  const requirements = [];
+  for (const token of tokens) {
+    if (!token.pattern.test(text)) continue;
+    requirements.push({
+      id: `r${requirements.length + 1}`,
+      text: token.text,
+      kind: token.kind,
+      priority: token.priority,
+    });
+  }
+
+  if (requirements.length === 0 && text.trim()) {
+    requirements.push({
+      id: "r1",
+      text: text.trim().slice(0, 120) || "Core role responsibilities",
+      kind: "others",
+      priority: "must",
+    });
+  }
+
+  return requirements;
+};
+
+const fallbackRole = (jobDescription = "") => {
+  const safeJD = String(jobDescription || "");
+  const requirements = fallbackRequirementsFromText(safeJD);
+
+  return {
+    title: safeJD.trim() ? "Role details unavailable" : "No role details provided",
+    seniority: "Unknown",
+    responsibilities: safeJD
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter((line) => line && line.length < 120)
+      .slice(0, 3),
+    requirements,
+  };
+};
+
+const fallbackCompanyBrief = (pages = []) => ({
+  summary: "",
+  what_they_do: GENERATION_PLACEHOLDER,
+  sources: (Array.isArray(pages) ? pages : []).map((page) => page?.url).filter(Boolean),
+});
+
+const buildGenericFlashcards = (requirements = []) =>
+  requirements.map((requirement, index) => ({
+    id: `f${index + 1}`,
+    front: requirement.text || `Review ${index + 1}`,
+    back: `Explain how this requirement shows up in practice, why it matters, and how you would discuss it in an interview.`,
+    requirement_ids: [requirement.id],
+  }));
+
+const buildBaseSource = (companyUrl, jobDescription, location = "") => {
+  let company = "unknown";
+
+  try {
+    company = new URL(companyUrl).hostname || "unknown";
+  } catch {
+    company = "unknown";
+  }
+
+  return {
+    company,
+    company_url: companyUrl || "",
+    role: "Role details unavailable",
+    location,
+    jd_chars: String(jobDescription || "").length,
+    researched_at: new Date().toISOString(),
+    pages_used: [],
+  };
+};
 
 export async function buildKit({
   companyUrl,
   jobDescription,
   daysAvailable,
-  progress = async (status, progress) => {
-    (status, progress);
-  },
+  progress = async () => {},
   location = "",
 }) {
-  const duplicateHash = hash(companyUrl, jobDescription);
+  const safeCompanyUrl = String(companyUrl || "").trim();
+  const safeJD = String(jobDescription || "");
+  const safeDays = Number.isFinite(daysAvailable) ? Math.max(1, Number(daysAvailable)) : 1;
+  const warnings = [];
 
-  const existing = await Kit.findOne({ duplicateHash }).lean();
-
-  //   if (existing) return existing;
-
-  const company = new URL(companyUrl).hostname;
-
-  /* ------------------------ 1. Website Retrieval ------------------------ */
   await progress("crawling", 15);
-  const retrieval = await retrieve(companyUrl);
 
-  if (!retrieval.ok) throw new Error(retrieval.error);
+  let retrieval = {
+    ok: false,
+    pages: [],
+    warnings: [],
+    error: "Company site could not be retrieved",
+  };
 
-  /* ------------------------ 2. Extract Role ----------------------------- */
+  if (safeCompanyUrl) {
+    try {
+      retrieval = await retrieve(safeCompanyUrl);
+    } catch (error) {
+      warnings.push(error?.message || "Company site retrieval failed");
+      retrieval = {
+        ok: false,
+        pages: [],
+        warnings,
+        error: error?.message || "Company site retrieval failed",
+      };
+    }
+  }
+
+  if (!retrieval.ok) {
+    warnings.push(retrieval?.error || "Company site retrieval failed");
+  }
+
+  const baseSource = buildBaseSource(safeCompanyUrl, safeJD, location);
+  const partialSource = {
+    ...baseSource,
+    pages_used: Array.isArray(retrieval?.pages) ? retrieval.pages.map((page) => page?.url).filter(Boolean) : [],
+  };
+
+  let role = fallbackRole(safeJD);
+  let requirements = assignRequirementIds(role.requirements);
+  let companyBrief = fallbackCompanyBrief(retrieval?.pages || []);
+
   await progress("extracting_role", 45);
+  try {
+    const extracted = await extractRole(safeJD);
+    role = extracted;
+    requirements = assignRequirementIds(extracted.requirements || []);
+  } catch (error) {
+    warnings.push(`Role extraction failed: ${error?.message || "unknown"}`);
+    role = fallbackRole(safeJD);
+    requirements = assignRequirementIds(role.requirements || []);
+  }
 
-  const role = await extractRole(jobDescription);
-  console.log("extracting");
+  try {
+    if (retrieval?.ok && Array.isArray(retrieval.pages) && retrieval.pages.length > 0) {
+      const generatedBrief = await generateCompanyBrief(retrieval.pages);
+      companyBrief = {
+        summary: String(generatedBrief?.summary ?? "").trim(),
+        what_they_do: String(generatedBrief?.what_they_do ?? "").trim() || GENERATION_PLACEHOLDER,
+        sources: retrieval.pages
+          .filter((page) => page?.type === "homepage" || page?.type === "about")
+          .map((page) => page?.url)
+          .filter(Boolean),
+      };
+    }
+  } catch (error) {
+    warnings.push(`Company brief generation failed: ${error?.message || "unknown"}`);
+    companyBrief = fallbackCompanyBrief(retrieval?.pages || []);
+  }
 
-  const requirements = assignRequirementIds(role.requirements);
-  console.log("requirements");
-
-  /* ------------------------ 3. Company Brief ---------------------------- */
-
-  const companyBrief = await generateCompanyBrief(retrieval.pages);
-  console.log("company brief");
-
-  /* ------------------------ 4–6. Questions ----------------------------- */
+  let questions = [];
+  let coverage = {
+    uncovered_requirement_ids: requirements.map((req) => req.id),
+    passes: 1,
+  };
 
   await progress("building_questions", 75);
+  try {
+    if (requirements.length > 0) {
+      const questionResult = await buildQuestionSet(requirements, companyBrief);
+      questions = assignQuestionIds(questionResult.questions || []);
+      coverage = {
+        ...(questionResult.coverage || {}),
+        uncovered_requirement_ids: (questionResult.coverage?.uncovered_requirement_ids || []).filter(Boolean),
+        passes: Number(questionResult.coverage?.passes) || 1,
+      };
+    }
+  } catch (error) {
+    warnings.push(`Question generation failed: ${error?.message || "unknown"}`);
+    questions = [];
+    coverage = {
+      uncovered_requirement_ids: requirements.map((req) => req.id),
+      passes: 1,
+    };
+  }
 
-  const questionResult = await buildQuestionSet(requirements, companyBrief);
-  console.log("gen questions");
+  let flashcards = [];
+  await progress("generating_flashcards", 85);
+  try {
+    if (requirements.length > 0) {
+      for (const requirement of requirements) {
+        const cards = await getFlashcardsForRequirement(requirement);
+        flashcards.push(...cards);
+      }
+    }
+  } catch (error) {
+    warnings.push(`Flashcard generation failed: ${error?.message || "unknown"}`);
+    flashcards = [];
+  }
 
-  const questions = assignQuestionIds(questionResult.questions);
-
-  /* ------------------------ 7. Flashcards ------------------------------ */
-
-  const flashcards = [];
-
-  await progress("generating_flashcards", 85)
-  for (const requirement of requirements) {
-    const cards = await getFlashcardsForRequirement(requirement);
-    flashcards.push(...cards);
+  if (flashcards.length === 0 && requirements.length > 0) {
+    flashcards = buildGenericFlashcards(requirements);
   }
 
   const finalFlashcards = assignFlashcardIds(flashcards);
 
-  /* ------------------------ 8. Schedule ------------------------------- */
   await progress("building_schedule", 90);
-
-  const schedule = buildSchedule(daysAvailable, questions, requirements);
-  console.log("Scheduled");
-
-  /* --------------------- Appendix A JSON ------------------------------ */
+  let schedule;
+  try {
+    schedule = buildSchedule(safeDays, questions, requirements);
+  } catch (error) {
+    warnings.push(`Schedule generation failed: ${error?.message || "unknown"}`);
+    schedule = {
+      days_available: safeDays,
+      days: Array.from({ length: safeDays }, (_, index) => ({
+        day: index + 1,
+        focus: "Revision",
+        question_ids: [],
+        minutes: 0,
+      })),
+    };
+  }
 
   const appendix = {
     source: {
-      company,
-      company_url: companyUrl,
-      role: role.title,
-      location,
-      jd_chars: jobDescription.length,
-      researched_at: new Date().toISOString(),
-      pages_used: retrieval.pages.map((p) => p.url),
+      ...partialSource,
+      role: role.title || "Role details unavailable",
     },
-
     company_brief: {
-      summary: companyBrief.summary,
-      what_they_do: companyBrief.what_they_do,
-      sources: retrieval.pages
-        .filter((p) => p.type === "homepage" || p.type === "about")
-        .map((p) => p.url),
+      summary: String(companyBrief?.summary ?? "").trim(),
+      what_they_do: String(companyBrief?.what_they_do ?? "").trim() || GENERATION_PLACEHOLDER,
+      sources: Array.isArray(companyBrief?.sources) ? companyBrief.sources.filter(Boolean) : [],
     },
-
     role: {
-      title: role.title,
-      seniority: role.seniority,
-      responsibilities: role.responsibilities,
+      title: role.title || "Role details unavailable",
+      seniority: role.seniority || "Unknown",
+      responsibilities: Array.isArray(role.responsibilities) ? role.responsibilities.map(String) : [],
       requirements,
     },
-
-    questions,
-
+    questions: assignQuestionIds(questions),
     flashcards: finalFlashcards,
-
     schedule,
-
-    coverage: questionResult.coverage,
+    coverage,
   };
 
-  // Strict validation
   const validated = AppendixASchema.parse(appendix);
 
-  /* ---------------------- Persist to Mongo ---------------------------- */
-
-  // inject knowledge_slug for persistence only
-  const knowledgeMap = new Map();
-
-  for (const req of requirements) {
-    const cards = await Flashcard.find({
-      _id: { $exists: false },
-      knowledge_slug: { $exists: true },
-    })
-      .select("knowledge_slug")
-      .limit(1);
-
-    if (cards.length) knowledgeMap.set(req.id, cards[0].knowledge_slug);
-  }
-
-  return validated;
+  return {
+    ...validated,
+    retrievalWarnings: warnings,
+  };
 }

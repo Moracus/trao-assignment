@@ -22,8 +22,29 @@ if (inputIndex === -1 || outputIndex === -1) {
 const inputPath = path.resolve(args[inputIndex + 1]);
 const outputPath = path.resolve(args[outputIndex + 1]);
 
+const isUsableKit = (kit) => {
+  if (!kit || typeof kit !== "object") return false;
+
+  const hasRequiredSections =
+    kit.source &&
+    typeof kit.source.company_url === "string" &&
+    kit.role &&
+    Array.isArray(kit.role.requirements) &&
+    kit.company_brief &&
+    typeof kit.company_brief.what_they_do === "string" &&
+    Array.isArray(kit.schedule?.days);
+
+  return Boolean(hasRequiredSections);
+};
+
 async function main() {
-  await mongoose.connect(process.env.MONGO_URI);
+  if (!process.env.MONGO_URI) {
+    console.warn("MONGO_URI is not set; continuing without DB connectivity for pure buildKit evaluation");
+  }
+
+  if (process.env.MONGO_URI) {
+    await mongoose.connect(process.env.MONGO_URI);
+  }
 
   const cases = JSON.parse(await fs.readFile(inputPath, "utf8"));
 
@@ -37,11 +58,16 @@ async function main() {
         daysAvailable: c.days,
       });
 
+      const usable = isUsableKit(kit);
+
       kits.push({
         id: c.id,
-        status: "ok",
-        kit,
-        error: null,
+        status: usable ? "ok" : "failed",
+        kit: usable ? kit : null,
+        error: usable ? null : {
+          code: "KIT_NOT_USABLE",
+          message: "The generator could not produce a usable kit shell for this case.",
+        },
       });
     } catch (err) {
       kits.push({
@@ -49,8 +75,8 @@ async function main() {
         status: "failed",
         kit: null,
         error: {
-          code: err.code || "KIT_GENERATION_FAILED",
-          message: err.message,
+          code: err?.code || "KIT_GENERATION_FAILED",
+          message: err?.message || "Unknown kit generation error",
         },
       });
     }
@@ -64,13 +90,17 @@ async function main() {
 
   await fs.writeFile(outputPath, JSON.stringify(output, null, 2));
 
-  await mongoose.disconnect();
+  if (process.env.MONGO_URI) {
+    await mongoose.disconnect();
+  }
 
   console.log(`Generated ${kits.length} kits → ${outputPath}`);
 }
 
-main().catch(async err => {
+main().catch(async (err) => {
   console.error(err);
-  await mongoose.disconnect();
+  if (process.env.MONGO_URI) {
+    await mongoose.disconnect();
+  }
   process.exit(1);
 });

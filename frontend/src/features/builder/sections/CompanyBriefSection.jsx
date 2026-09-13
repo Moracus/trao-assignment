@@ -26,6 +26,10 @@ export default function CompanyBriefSection({ brief, updateBrief, saveState, reg
     );
   }
 
+  const fallbackText = "couldn't rgenrate, edit or regenerate";
+  const summaryValue = brief?.summary?.trim() || fallbackText;
+  const whatTheyDoValue = brief?.what_they_do?.trim() || fallbackText;
+
   return (
     <div className="rounded-2xl border bg-white">
       <div className="flex items-center justify-between border-b p-5">
@@ -46,8 +50,8 @@ export default function CompanyBriefSection({ brief, updateBrief, saveState, reg
 
           <EditableText
             multiline
-            value={brief?.summary ?? ""}
-            onSave={(v) => updateBrief("summary", v)}
+            value={summaryValue}
+            onSave={(v) => updateBrief("summary", v || fallbackText)}
             className="text-base leading-7 text-gray-700"
           />
         </section>
@@ -59,8 +63,8 @@ export default function CompanyBriefSection({ brief, updateBrief, saveState, reg
 
           <EditableText
             multiline
-            value={brief?.what_they_do ?? ""}
-            onSave={(v) => updateBrief("what_they_do", v)}
+            value={whatTheyDoValue}
+            onSave={(v) => updateBrief("what_they_do", v || fallbackText)}
             className="text-base leading-7 text-gray-700"
           />
         </section>

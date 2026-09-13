@@ -36,7 +36,13 @@ export const createKit = async (req, res) => {
         kit: existing,
       });
     }
-    const company = new URL(data.companyUrl).hostname
+    const company = (() => {
+      try {
+        return new URL(data.companyUrl).hostname;
+      } catch {
+        return "";
+      }
+    })();
 
     const kit = await Kit.create({
       user: req.user.id,

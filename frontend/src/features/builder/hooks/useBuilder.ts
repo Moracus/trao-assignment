@@ -62,11 +62,13 @@ const normaliseFlashcard = (card: any): BuilderFlashcard => {
 };
 
 const normaliseCompanyBrief = (brief: any): CompanyBrief => {
-  if (!brief) return { summary: "", what_they_do: "", sources: [], edited: { summary: false, what_they_do: false }, pinned: false };
+  if (!brief) return { summary: "", what_they_do: "couldn't rgenrate, edit or regenerate", sources: [], edited: { summary: false, what_they_do: false }, pinned: false };
+
+  const fallbackText = "couldn't rgenrate, edit or regenerate";
 
   return {
     summary: brief.summary ?? "",
-    what_they_do: brief.what_they_do ?? brief.businessModel ?? brief.culture ?? "",
+    what_they_do: brief.what_they_do ?? brief.businessModel ?? brief.culture ?? fallbackText,
     sources: brief.sources ?? [],
     edited: {
       summary: Boolean(brief.edited?.summary ?? brief._meta?.edited ?? false),

@@ -3,7 +3,7 @@ import { z } from "zod";
 export const Requirement = z.object({
   id: z.string(),
   text: z.string(),
-  kind: z.enum(["technical", "experience", "education", "soft-skill","others"]),
+  kind: z.enum(["technical", "experience", "education", "soft-skill", "others"]),
   priority: z.enum(["must", "should", "nice"]),
 });
 
@@ -15,7 +15,7 @@ export const Question = z.object({
     "behavioural",
     "system-design",
     "company-fit",
-    "others"
+    "others",
   ]),
   prompt: z.string(),
   answer_outline: z.string(),
@@ -59,12 +59,14 @@ export const AppendixASchema = z.object({
 
   schedule: z.object({
     days_available: z.number().int(),
-    days: z.array(z.object({
-      day: z.number().int(),
-      focus: z.string(),
-      question_ids: z.array(z.string()),
-      minutes: z.number().int(),
-    })),
+    days: z.array(
+      z.object({
+        day: z.number().int(),
+        focus: z.string(),
+        question_ids: z.array(z.string()),
+        minutes: z.number().int(),
+      }),
+    ),
   }),
 
   coverage: z.object({
