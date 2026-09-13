@@ -36,7 +36,6 @@ export default function Dashboard() {
   const [kits, setKits] = useState(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [filter, setFilter] = useState("all");
-  const [progress, setProgress] = useState(0);
   const [completedKits, setCompletedKits] = useState(0);
   const [inProgressKits, setInProgressKits] = useState(0);
 
@@ -58,14 +57,12 @@ export default function Dashboard() {
       const es = connectKitEvents(kit._id, async (data) => {
         if (data.status === "completed") {
           const realKit = await getKit(kit._id);
-          setProgress(data.progress);
 
           setKits((prev) => prev.map((k) => (k._id === kit._id ? realKit : k)));
 
           es.close();
           delete eventSources.current[kit._id];
         } else {
-          setProgress(data.progress);
           setKits((prev) =>
             prev.map((k) =>
               k._id === kit._id
@@ -149,8 +146,10 @@ export default function Dashboard() {
     setCompletedKits(completedK?.length);
     setInProgressKits(inProgressK?.length);
 
-    if (filter === "progress") return inProgressKits;
-    if (filter === "completed") return completedKits;
+    if (filter === "progress"){
+        return inProgressK
+    };
+    if (filter === "completed") return completedK;
     return kits ?? [];
   }, [kits, filter]);
 
