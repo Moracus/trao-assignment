@@ -117,18 +117,22 @@ function priorityScore(question, reqMap) {
 }
 
 function deriveFocus(questions, reqMap) {
-  if (questions.length === 0) return "Revision";
+  if (!Array.isArray(questions) || questions.length === 0) return "Revision";
+  if (!reqMap || reqMap.size === 0) return "Revision";
 
   const counts = {};
 
   for (const q of questions) {
-    for (const id of q.requirement_ids) {
+    const requirementIds = Array.isArray(q?.requirement_ids) ? q.requirement_ids : [];
+
+    for (const id of requirementIds) {
       const req = reqMap.get(id);
-      if (!req) continue;
+      if (!req || !req.text) continue;
 
       counts[req.text] = (counts[req.text] || 0) + 1;
     }
   }
 
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  const topEntry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return topEntry ? topEntry[0] : "Revision";
 }

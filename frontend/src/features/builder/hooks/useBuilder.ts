@@ -11,6 +11,7 @@ import {
   updateFlashcard as apiUpdateFlashcard,
   updateQuestion as apiUpdateQuestion,
 } from "../../../api/kits";
+import { mergeGeneratedSection } from "./mergeGeneratedSection";
 import type {
   BuilderFlashcard,
   BuilderQuestion,
@@ -78,44 +79,7 @@ const normaliseCompanyBrief = (brief: any): CompanyBrief => {
   };
 };
 
-export const mergeGeneratedSection = <T extends { generated?: boolean; edited?: boolean; pinned?: boolean; deleted?: boolean; id?: string }>(existing: T[] = [], regenerated: T[] = []) => {
-  const merged = [...regenerated];
-  const existingMap = new Map((existing ?? []).map((item) => [item.id, item]));
-
-  for (const item of existing ?? []) {
-    if (!item || item.deleted) continue;
-
-    const shouldKeepExisting =
-      !!item.edited ||
-      !!item.pinned ||
-      item.generated === false;
-
-    if (shouldKeepExisting) {
-      const existingIndex = merged.findIndex((candidate) => candidate.id === item.id);
-      if (existingIndex >= 0) {
-        merged[existingIndex] = {
-          ...merged[existingIndex],
-          ...item,
-          generated: item.generated ?? merged[existingIndex].generated,
-          edited: item.edited ?? merged[existingIndex].edited,
-          pinned: item.pinned ?? merged[existingIndex].pinned,
-          deleted: !!item.deleted,
-        };
-      } else {
-        merged.push(item);
-      }
-      continue;
-    }
-
-    const regeneratedItem = merged.find((candidate) => candidate.id === item.id);
-    if (regeneratedItem) {
-      const replaceIndex = merged.findIndex((candidate) => candidate.id === item.id);
-      merged[replaceIndex] = { ...regeneratedItem, ...existingMap.get(item.id) };
-    }
-  }
-
-  return merged.filter((item) => !item.deleted);
-};
+export { mergeGeneratedSection };
 
 export const mergeCompanyBrief = (current: any, incoming: any) => {
   const base = normaliseCompanyBrief(incoming ?? current ?? {});

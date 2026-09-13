@@ -14,6 +14,41 @@ const connection = redis;
 const assignQuestionIds = (qs) => qs.map((q, i) => ({ id: `q${i + 1}`, ...q }));
 const assignFlashcardIds = (cards) => cards.map((c, i) => ({ id: `f${i + 1}`, ...c }));
 
+const mergeGeneratedItems = (existing = [], regenerated = []) => {
+  const result = [];
+  const seen = new Set();
+  const regeneratedById = new Map();
+
+  for (const item of regenerated ?? []) {
+    if (!item || item.deleted || !item.id) continue;
+    regeneratedById.set(item.id, item);
+  }
+
+  for (const item of existing ?? []) {
+    if (!item || item.deleted) continue;
+
+    const isSticky = !!item.edited || !!item.pinned || item.generated === false;
+    if (isSticky) {
+      if (item.id) seen.add(item.id);
+      result.push(item);
+      continue;
+    }
+
+    if (item.id && regeneratedById.has(item.id)) {
+      result.push(regeneratedById.get(item.id));
+      seen.add(item.id);
+    }
+  }
+
+  for (const item of regenerated ?? []) {
+    if (!item || item.deleted || !item.id || seen.has(item.id)) continue;
+    result.push(item);
+    seen.add(item.id);
+  }
+
+  return result.filter((item) => !item.deleted);
+};
+
 const buildSectionResult = async (kit, section, daysAvailable) => {
   const normalizedSection = section === "brief" ? "companyBrief" : section;
 
@@ -181,10 +216,10 @@ new Worker(
       });
 
       if (sectionResult.questions) {
-        kit.questions = sectionResult.questions;
+        kit.questions = mergeGeneratedItems(kit.questions ?? [], sectionResult.questions);
       }
       if (sectionResult.flashcards) {
-        kit.flashcards = sectionResult.flashcards;
+        kit.flashcards = mergeGeneratedItems(kit.flashcards ?? [], sectionResult.flashcards);
       }
       if (sectionResult.company_brief) {
         kit.company_brief = {
