@@ -8,6 +8,9 @@ import Button from "../components/ui/Button";
 import { useEffect } from "react";
 import api from "../api/axios";
 
+
+const BACKENDURL = import.meta.env.VITE_API_URL
+
 export default function Signup() {
   const {
     register,
@@ -30,7 +33,7 @@ export default function Signup() {
    
     try {
       const response = await api.get(
-        `/auth/check-username?username=${debounced}`,
+        `${BACKENDURL}/auth/check-username?username=${debounced}`,
       );
       if (response.status==200 && response.data.isAvailable) {
         clearErrors("username");
