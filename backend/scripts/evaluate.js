@@ -3,6 +3,7 @@ import path from "path";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { buildKit } from "../modules/pipeline/buildkits.js";
+import { AppendixASchema } from "../zod/appendixKit.schema.js";
 
 
 dotenv.config();
@@ -21,29 +22,15 @@ if (inputIndex === -1 || outputIndex === -1) {
 
 const inputPath = path.resolve(args[inputIndex + 1]);
 const outputPath = path.resolve(args[outputIndex + 1]);
+const useDatabase = process.env.EVALUATE_WITH_DB === "true";
 
-const isUsableKit = (kit) => {
-  if (!kit || typeof kit !== "object") return false;
-
-  const hasRequiredSections =
-    kit.source &&
-    typeof kit.source.company_url === "string" &&
-    kit.role &&
-    Array.isArray(kit.role.requirements) &&
-    kit.company_brief &&
-    typeof kit.company_brief.what_they_do === "string" &&
-    Array.isArray(kit.schedule?.days);
-
-  return Boolean(hasRequiredSections);
-};
+const validateAppendixKit = (kit) => AppendixASchema.safeParse(kit);
 
 async function main() {
-  if (!process.env.MONGO_URI) {
-    console.warn("MONGO_URI is not set; continuing without DB connectivity for pure buildKit evaluation");
-  }
-
-  if (process.env.MONGO_URI) {
+  if (useDatabase && process.env.MONGO_URI) {
     await mongoose.connect(process.env.MONGO_URI);
+  } else {
+    console.warn("Running batch evaluation without MongoDB (set EVALUATE_WITH_DB=true to opt in).");
   }
 
   const cases = JSON.parse(await fs.readFile(inputPath, "utf8"));
@@ -58,15 +45,17 @@ async function main() {
         daysAvailable: c.days,
       });
 
-      const usable = isUsableKit(kit);
+      const validation = validateAppendixKit(kit);
 
       kits.push({
         id: c.id,
-        status: usable ? "ok" : "failed",
-        kit: usable ? kit : null,
-        error: usable ? null : {
-          code: "KIT_NOT_USABLE",
-          message: "The generator could not produce a usable kit shell for this case.",
+        status: validation.success ? "ok" : "failed",
+        // Preserve explicitly supported pipeline extensions (for example,
+        // retrievalWarnings) while requiring the complete Appendix A core.
+        kit: validation.success ? kit : null,
+        error: validation.success ? null : {
+          code: "KIT_SCHEMA_INVALID",
+          message: "The generator did not produce the required Appendix A kit structure.",
         },
       });
     } catch (err) {
@@ -90,7 +79,7 @@ async function main() {
 
   await fs.writeFile(outputPath, JSON.stringify(output, null, 2));
 
-  if (process.env.MONGO_URI) {
+  if (useDatabase && mongoose.connection.readyState) {
     await mongoose.disconnect();
   }
 
@@ -99,7 +88,7 @@ async function main() {
 
 main().catch(async (err) => {
   console.error(err);
-  if (process.env.MONGO_URI) {
+  if (useDatabase && mongoose.connection.readyState) {
     await mongoose.disconnect();
   }
   process.exit(1);

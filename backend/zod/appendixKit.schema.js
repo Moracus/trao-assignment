@@ -1,22 +1,23 @@
 import { z } from "zod";
+import {
+  KIT_QUESTION_CATEGORIES,
+  KIT_REQUIREMENT_KINDS,
+  KIT_REQUIREMENT_PRIORITIES,
+} from "../constants/kitEnums.js";
 
 export const Requirement = z.object({
   id: z.string(),
   text: z.string(),
-  kind: z.enum(["technical", "experience", "education", "soft-skill", "others"]),
-  priority: z.enum(["must", "should", "nice"]),
+  // These are the exact Appendix A values. Internal model/LLM variants are
+  // normalized by buildKit before a kit leaves the generation pipeline.
+  kind: z.enum(KIT_REQUIREMENT_KINDS),
+  priority: z.enum(KIT_REQUIREMENT_PRIORITIES),
 });
 
 export const Question = z.object({
   id: z.string(),
   requirement_ids: z.array(z.string()),
-  category: z.enum([
-    "technical",
-    "behavioural",
-    "system-design",
-    "company-fit",
-    "others",
-  ]),
+  category: z.enum(KIT_QUESTION_CATEGORIES),
   prompt: z.string(),
   answer_outline: z.string(),
   difficulty: z.number().int().min(1).max(3),
@@ -73,4 +74,17 @@ export const AppendixASchema = z.object({
     uncovered_requirement_ids: z.array(z.string()),
     passes: z.number().int(),
   }),
+}).superRefine((kit, context) => {
+  const questionIds = new Set(kit.questions.map((question) => question.id));
+  kit.schedule.days.forEach((day, dayIndex) => {
+    day.question_ids.forEach((questionId, questionIndex) => {
+      if (!questionIds.has(questionId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["schedule", "days", dayIndex, "question_ids", questionIndex],
+          message: `Schedule references unknown question id: ${questionId}`,
+        });
+      }
+    });
+  });
 });

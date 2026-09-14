@@ -9,6 +9,8 @@ export default function BuilderLayout({
   regenerating,
   onRegenerate,
   onFullKitRegenerate,
+  onCancel,
+  cancelling,
   activeSection,
   onSectionChange,
 }) {
@@ -20,6 +22,8 @@ export default function BuilderLayout({
         regenerating={regenerating}
         onRegenerate={onRegenerate}
         onFullKitRegenerate={onFullKitRegenerate}
+        onCancel={onCancel}
+        cancelling={cancelling}
         cooldownRemaining={kit?.cooldownRemaining ?? 0}
       />
 

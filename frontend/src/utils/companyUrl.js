@@ -63,6 +63,10 @@ export function getErrorMessage(error, fallback = "Something went wrong.") {
 
   if (typeof error === "string") return error;
 
+  if (error.response?.status === 503 && error.response?.data?.code === "WORKER_UNAVAILABLE") {
+    return "Generation is temporarily unavailable. Please try again shortly.";
+  }
+
   if (error.response?.data?.message) {
     return error.response.data.message;
   }

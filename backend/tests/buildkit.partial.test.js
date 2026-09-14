@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildKit } from '../modules/pipeline/buildkits.js';
+import { AppendixASchema } from '../zod/appendixKit.schema.js';
 
 test('buildKit still returns a valid partial kit when company retrieval fails', async () => {
   const result = await buildKit({
@@ -17,4 +18,5 @@ test('buildKit still returns a valid partial kit when company retrieval fails', 
   assert.ok(Array.isArray(result.flashcards));
   assert.ok(Array.isArray(result.schedule.days));
   assert.equal(result.schedule.days_available, 5);
+  assert.doesNotThrow(() => AppendixASchema.parse(result));
 });

@@ -23,11 +23,11 @@ export default function FailedKitCard({ kit, onDelete, onRegenerate }) {
             </div>
 
             <div className="mt-2 inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
-              Generation Failed
+              {kit.status === "cancelled" ? "Generation Cancelled" : "Generation Failed"}
             </div>
 
             <p className="mt-3 text-sm text-muted">
-              {kit.error ||
+              {kit.error?.message || kit.error ||
                 "Something went wrong while generating this interview kit."}
             </p>
 

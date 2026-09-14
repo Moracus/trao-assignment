@@ -20,6 +20,7 @@ import CreateKitModal from "../components/modals/CreateKitModal";
 import Button from "../components/ui/Button";
 import {
   connectKitEvents,
+  cancelKit,
   createKit,
   deleteKit,
   getKit,
@@ -42,6 +43,16 @@ export default function Dashboard() {
   const [inProgressKits, setInProgressKits] = useState(0);
 
   const eventSources = useRef({});
+  const [cancellingIds, setCancellingIds] = useState({});
+  const [statusUnavailable, setStatusUnavailable] = useState(false);
+  const pollFailures = useRef(0);
+  const activeJobIds = useMemo(
+    () => (kits ?? [])
+      .filter((kit) => !["completed", "failed", "cancelled"].includes(kit.status) && !String(kit._id).startsWith("temp-"))
+      .map((kit) => kit._id),
+    [kits],
+  );
+  const activeJobKey = activeJobIds.join(",");
 
   useEffect(() => {
     if (!kits) {
@@ -53,12 +64,12 @@ export default function Dashboard() {
     if (!kits?.length) return;
 
     kits.forEach((kit) => {
-      if (kit.status === "completed") return;
+      if (["completed", "failed", "cancelled"].includes(kit.status)) return;
       if (eventSources.current[kit._id]) return;
 
       const es = connectKitEvents(kit._id, async (data) => {
         try {
-          if (data.status === "completed") {
+          if (["completed", "failed", "cancelled"].includes(data.status)) {
             const realKit = await getKit(kit._id);
 
             setKits((prev) =>
@@ -88,6 +99,27 @@ export default function Dashboard() {
       eventSources.current[kit._id] = es;
     });
   }, [kits]);
+
+  // SSE is an optimization. Polling keeps the UI correct after proxies or a
+  // sleeping browser drop the stream without delivering a terminal event.
+  useEffect(() => {
+    const ids = activeJobKey ? activeJobKey.split(",") : [];
+    if (!ids.length) return undefined;
+    const poll = async () => {
+      const results = await Promise.allSettled(ids.map(getKit));
+      const fresh = results.filter((result) => result.status === "fulfilled").map((result) => result.value);
+      if (fresh.length) {
+        pollFailures.current = 0;
+        setStatusUnavailable(false);
+        setKits((previous) => previous?.map((kit) => fresh.find((next) => next._id === kit._id) ?? kit) ?? previous);
+      } else if (++pollFailures.current >= 3) {
+        setStatusUnavailable(true);
+      }
+    };
+    poll();
+    const timer = window.setInterval(poll, 5000);
+    return () => window.clearInterval(timer);
+  }, [activeJobKey]);
 
   useEffect(() => {
     return () => {
@@ -175,13 +207,28 @@ export default function Dashboard() {
     }
   }
 
+  async function cancel(id) {
+    setCancellingIds((current) => ({ ...current, [id]: true }));
+    try {
+      await cancelKit(id);
+      eventSources.current[id]?.close?.();
+      delete eventSources.current[id];
+      setKits((previous) => previous?.map((kit) => kit._id === id ? { ...kit, status: "cancelled", progress: 0 } : kit) ?? previous);
+      toast.info("Generation cancelled.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not cancel generation."));
+    } finally {
+      setCancellingIds((current) => ({ ...current, [id]: false }));
+    }
+  }
+
   function openKit(id) {
     navigate(`/builder/${id}`);
   }
 
   const filteredKits = useMemo(() => {
     const inProgressK =
-      kits?.filter((k) => k.status !== "completed" && k.status !== "failed") ??
+      kits?.filter((k) => !["completed", "failed", "cancelled"].includes(k.status)) ??
       [];
     const completedK = kits?.filter((k) => k.status === "completed") ?? [];
 
@@ -192,7 +239,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const inProgressK =
-      kits?.filter((k) => k.status !== "completed" && k.status !== "failed") ??
+      kits?.filter((k) => !["completed", "failed", "cancelled"].includes(k.status)) ??
       [];
     const completedK = kits?.filter((k) => k.status === "completed") ?? [];
 
@@ -264,6 +311,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
+          {statusUnavailable && <p className="text-sm text-amber-700 lg:col-span-2">Generation status is temporarily unavailable. You can still cancel or retry.</p>}
           {filteredKits?.map((kit) =>
             kit.status === "completed" ? (
               <KitCard
@@ -280,12 +328,21 @@ export default function Dashboard() {
                 onDelete={deleteOne}
                 onRegenerate={regenerate}
               />
+            ) : kit.status === "cancelled" ? (
+              <FailedKitCard
+                key={kit._id}
+                kit={{ ...kit, error: { message: "Generation cancelled." } }}
+                onDelete={deleteOne}
+                onRegenerate={regenerate}
+              />
             ) : (
               <GeneratingCard
                 key={kit._id}
                 status={kit.status}
                 company={kit.company}
                 progress={kit.progress}
+                onCancel={() => cancel(kit._id)}
+                cancelling={Boolean(cancellingIds[kit._id])}
               />
             ),
           )}

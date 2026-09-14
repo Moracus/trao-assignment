@@ -15,6 +15,7 @@ router.patch("/:id", protect, kit.updateKit);
 router.delete("/:id", protect, kit.deleteKit);
 
 router.post("/:id/regenerate", protect, kit.regenerateKit);
+router.post("/:id/cancel", protect, kit.cancelKit);
 
 router.get("/:id/events", protect, kit.streamKit);
 

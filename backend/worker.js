@@ -7,12 +7,66 @@ import { buildSchedule } from "./modules/deterministic/scheduler.js";
 import { emitKitUpdate } from "./queues/events.js";
 import { redis } from "./config/redis.js";
 import { connectDB } from "./config/db.js";
+import { WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL_SECONDS } from "./config/workerHealth.js";
+import {
+  normalizeQuestionCategory,
+  normalizeRequirement,
+} from "./constants/kitEnums.js";
 
 connectDB();
 const connection = redis;
 
-const assignQuestionIds = (qs) => qs.map((q, i) => ({ id: `q${i + 1}`, ...q }));
+let heartbeatTimer;
+let worker;
+const refreshHeartbeat = async () => {
+  await redis.set(WORKER_HEARTBEAT_KEY, String(process.pid), "EX", WORKER_HEARTBEAT_TTL_SECONDS);
+};
+
+const startHeartbeat = async () => {
+  await refreshHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    refreshHeartbeat().catch((error) => console.error("Worker heartbeat failed:", error));
+  }, 5000);
+};
+
+redis.once("ready", () => {
+  startHeartbeat().catch((error) => console.error("Unable to start worker heartbeat:", error));
+});
+if (redis.status === "ready") startHeartbeat().catch((error) => console.error("Unable to start worker heartbeat:", error));
+
+const stopHeartbeat = async () => {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  try { await redis.del(WORKER_HEARTBEAT_KEY); } catch { /* Redis may already be down. */ }
+};
+
+const shutdown = async () => {
+  await stopHeartbeat();
+  await worker?.close();
+  await redis.quit().catch(() => {});
+  process.exit(0);
+};
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);
+
+const assignQuestionIds = (qs) => qs.map((q, i) => ({
+  id: `q${i + 1}`,
+  ...q,
+  category: normalizeQuestionCategory(q.category),
+}));
 const assignFlashcardIds = (cards) => cards.map((c, i) => ({ id: `f${i + 1}`, ...c }));
+
+const normalizeKitEnums = (kit) => {
+  if (kit?.role?.requirements) {
+    kit.role.requirements = kit.role.requirements.map(normalizeRequirement);
+  }
+  if (kit?.questions) {
+    kit.questions = kit.questions.map((question) => ({
+      ...question.toObject?.() ?? question,
+      category: normalizeQuestionCategory(question.category),
+    }));
+  }
+  return kit;
+};
 
 const mergeGeneratedItems = (existing = [], regenerated = []) => {
   const result = [];
@@ -135,21 +189,30 @@ const buildSectionResult = async (kit, section, daysAvailable) => {
   throw new Error(`Unsupported section: ${section}`);
 };
 
-new Worker(
+const isCancelled = async (_id, jobId) => {
+  const kit = await Kit.findOne({ _id, jobId }).select("status cancellationRequestedAt").lean();
+  return !kit || kit.status === "cancelled" || Boolean(kit.cancellationRequestedAt);
+};
+
+const activeFilter = (_id, jobId) => ({ _id, jobId, status: { $ne: "cancelled" }, cancellationRequestedAt: null });
+
+worker = new Worker(
   "kit-generation",
   async (job) => {
     const { _id, companyUrl, jobDescription, daysAvailable, section = null } = job.data;
 
     try {
-      const kit = await Kit.findById(_id);
+      const kit = await Kit.findOne({ _id, jobId: String(job.id) });
 
       if (!kit) {
-        console.error(`Kit not found: ${_id}`);
+        console.error(`Kit not found or superseded: ${_id}`);
         return;
       }
+      normalizeKitEnums(kit);
+      if (await isCancelled(_id, String(job.id))) return;
 
       if (!section) {
-        await Kit.findByIdAndUpdate(_id, {
+        await Kit.findOneAndUpdate(activeFilter(_id, String(job.id)), {
           status: "crawling",
           progress: 10,
         });
@@ -161,14 +224,13 @@ new Worker(
           jobDescription,
           daysAvailable,
           progress: async (status, progress) => {
-            const exists = await Kit.exists({ _id });
+            const exists = await Kit.exists(activeFilter(_id, String(job.id)));
 
             if (!exists) {
-              console.error(`Kit deleted during generation: ${_id}`);
-              throw new Error("KIT_NOT_FOUND");
+              throw new Error("KIT_CANCELLED_OR_NOT_FOUND");
             }
 
-            await Kit.findByIdAndUpdate(_id, {
+            await Kit.findOneAndUpdate(activeFilter(_id, String(job.id)), {
               status,
               progress,
             });
@@ -177,7 +239,8 @@ new Worker(
           },
         });
 
-        await Kit.findByIdAndUpdate(_id, {
+        if (await isCancelled(_id, String(job.id))) return;
+        const completed = await Kit.findOneAndUpdate(activeFilter(_id, String(job.id)), {
           status: "completed",
           progress: 100,
           data: result,
@@ -192,13 +255,13 @@ new Worker(
           ...result,
         });
 
-        emitKitUpdate(_id, "completed", 100, section);
+        if (completed) emitKitUpdate(_id, "completed", 100, section);
         return;
       }
 
       const normalizedSection = section === "brief" ? "companyBrief" : section;
 
-      await Kit.findByIdAndUpdate(_id, {
+      await Kit.findOneAndUpdate(activeFilter(_id, String(job.id)), {
         status: "queued",
         progress: 15,
       });
@@ -210,7 +273,9 @@ new Worker(
 
       const sectionResult = await buildSectionResult(kit, normalizedSection, daysAvailable);
 
-      await Kit.findByIdAndUpdate(_id, {
+      if (await isCancelled(_id, String(job.id))) return;
+
+      await Kit.findOneAndUpdate(activeFilter(_id, String(job.id)), {
         status: normalizedSection === "questions" ? "building_questions" : normalizedSection === "flashcards" ? "generating_flashcards" : normalizedSection === "schedule" ? "building_schedule" : "queued",
         progress: 60,
       });
@@ -246,12 +311,22 @@ new Worker(
         kit.retrievalWarnings = sectionResult.retrievalWarnings;
       }
 
+      if (await isCancelled(_id, String(job.id))) return;
+      // Persist against the current job only, so a late job cannot overwrite a
+      // cancellation or a newer regeneration request.
       kit.status = "completed";
       kit.progress = 100;
       kit.updatedAt = new Date();
-      await kit.save();
+      const update = kit.toObject();
+      delete update._id;
+      delete update.__v;
+      const committed = await Kit.findOneAndUpdate(
+        activeFilter(_id, String(job.id)),
+        update,
+        { new: true },
+      );
 
-      emitKitUpdate(_id, "completed", 100, normalizedSection, {
+      if (committed) emitKitUpdate(_id, "completed", 100, normalizedSection, {
         section: normalizedSection,
         status: "completed",
         result: sectionResult,
@@ -259,13 +334,14 @@ new Worker(
     } catch (error) {
       console.error(`Kit worker error [${_id}]:`, error);
 
-      const exists = await Kit.exists({ _id });
+      if (await isCancelled(_id, String(job.id)) || error.message === "KIT_CANCELLED_OR_NOT_FOUND") return;
+      const exists = await Kit.exists(activeFilter(_id, String(job.id)));
 
       if (exists) {
-        await Kit.findByIdAndUpdate(_id, {
+        await Kit.findOneAndUpdate(activeFilter(_id, String(job.id)), {
           status: "failed",
           progress: 0,
-          error: error.message,
+          error: { code: error.code ?? "GENERATION_FAILED", message: error.message },
         });
 
         emitKitUpdate(_id, "failed", 0, section ?? null, {

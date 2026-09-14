@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { openai, MODEL } from "./openai.js";
 import { withRetry } from "./retry.js";
+import { KNOWLEDGE_CATEGORIES } from "../../constants/kitEnums.js";
 
 const CardSchema = z.object({
   front: z.string(),
@@ -10,18 +11,7 @@ const CardSchema = z.object({
 const OutputSchema = z.object({
   slug: z.string(),
   title: z.string(),
-  category: z.enum([
-    "frontend",
-    "backend",
-    "database",
-    "cloud",
-    "devops",
-    "testing",
-    "mobile",
-    "ai",
-    "soft-skills",
-    "general",
-  ]),
+  category: z.enum(KNOWLEDGE_CATEGORIES),
   aliases: z.array(z.string()),
   cards: z.array(CardSchema).length(3),
 });
@@ -36,18 +26,7 @@ const JSON_SCHEMA = {
       title: { type: "string" },
       category: {
         type: "string",
-        enum: [
-          "frontend",
-          "backend",
-          "database",
-          "cloud",
-          "devops",
-          "testing",
-          "mobile",
-          "ai",
-          "soft-skills",
-          "general",
-        ],
+        enum: KNOWLEDGE_CATEGORIES,
       },
       aliases: {
         type: "array",
@@ -115,4 +94,3 @@ const requirement =
 
 // console.log("gpting")
 // console.log(await generateFlashcards(requirement))
-

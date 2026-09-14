@@ -1,6 +1,7 @@
 // models/Knowledge.js
 
 import mongoose from "mongoose";
+import { KNOWLEDGE_CATEGORIES } from "../constants/kitEnums.js";
 
 const KnowledgeSchema = new mongoose.Schema(
   {
@@ -18,18 +19,7 @@ const KnowledgeSchema = new mongoose.Schema(
 
     category: {
       type: String,
-      enum: [
-        "frontend",
-        "backend",
-        "database",
-        "cloud",
-        "devops",
-        "testing",
-        "mobile",
-        "ai",
-        "soft-skills",
-        "general",
-      ],
+      enum: KNOWLEDGE_CATEGORIES,
       required: true,
     },
 

@@ -1,8 +1,15 @@
 import Kit from "../models/Kit.js";
-import { addKitJob, removeKitJob } from "../queues/kit.queue.js";
+import { addKitJob, getKitJob, removeKitJob } from "../queues/kit.queue.js";
 import { createDupHash } from "../utils/index.js";
 import { jobRequestSchema } from "../zod/kit.schema.js";
 import { subscribeKitUpdates } from "../queues/events.js";
+import { isWorkerAvailable } from "../config/workerHealth.js";
+import { emitKitUpdate } from "../queues/events.js";
+import {
+  KIT_ACTIVE_STATUSES,
+  normalizeQuestionCategory,
+  normalizeRequirement,
+} from "../constants/kitEnums.js";
 
 const VALID_REGEN_SECTIONS = new Set([
   "questions",
@@ -22,6 +29,9 @@ export const createKit = async (req, res) => {
     }
 
     const data = parsed.data;
+    if (!(await isWorkerAvailable())) {
+      return res.status(503).json({ code: "WORKER_UNAVAILABLE", message: "Generation is temporarily unavailable. Please try again shortly." });
+    }
     const hash = createDupHash(data.companyUrl, data.jobDescription);
 
     const existing = await Kit.findOne({
@@ -43,6 +53,7 @@ export const createKit = async (req, res) => {
       }
     })();
 
+    const jobId = `kit-${new Kit()._id.toString()}-${Date.now()}`;
     const kit = await Kit.create({
       user: req.user.id,
       company:company,
@@ -51,12 +62,14 @@ export const createKit = async (req, res) => {
       duplicateHash: hash,
       status: "queued",
       progress: 0,
+      jobId,
+      requestedSection: null,
     });
 
     await addKitJob({
       _id: kit._id,
       ...data,
-    });
+    }, jobId);
 
     res.status(202).json({
       _id: kit._id,
@@ -130,7 +143,7 @@ export const deleteKit = async (req, res) => {
     if (!kit) return res.sendStatus(404);
 
     if (kit.status !== "completed") {
-      await removeKitJob(kit._id.toString());
+      await removeKitJob(kit.jobId);
     }
 
     await kit.deleteOne();
@@ -160,8 +173,33 @@ export const regenerateKit = async (req, res) => {
 
     if (!oldKit) return res.sendStatus(404);
 
+    if (!(await isWorkerAvailable())) {
+      return res.status(503).json({ code: "WORKER_UNAVAILABLE", message: "Generation is temporarily unavailable. Please try again shortly." });
+    }
+
+    if (!["completed", "failed", "cancelled"].includes(oldKit.status)) {
+      return res.status(409).json({ code: "KIT_BUSY", message: "This kit already has generation in progress." });
+    }
+
+    const jobId = `kit-${oldKit._id.toString()}-${Date.now()}`;
+    // Existing records may have been created before canonical enums were
+    // introduced. Normalize them before this save so regeneration is safe.
+    if (oldKit.role?.requirements) {
+      oldKit.role.requirements = oldKit.role.requirements.map(normalizeRequirement);
+    }
+    if (oldKit.questions) {
+      oldKit.questions = oldKit.questions.map((question) => ({
+        ...(question.toObject?.() ?? question),
+        category: normalizeQuestionCategory(question.category),
+      }));
+    }
     oldKit.status = "queued";
     oldKit.progress = 0;
+    oldKit.jobId = jobId;
+    oldKit.requestedSection = requestedSection === "full" ? null : requestedSection;
+    oldKit.cancellationRequestedAt = null;
+    oldKit.cancelledAt = null;
+    oldKit.error = undefined;
     await oldKit.save();
 
     await addKitJob({
@@ -170,7 +208,7 @@ export const regenerateKit = async (req, res) => {
       jobDescription: oldKit.jobDescription,
       daysAvailable: oldKit?.schedule?.days_available ?? oldKit?.daysAvailable ?? 14,
       section: requestedSection === "full" ? null : requestedSection,
-    });
+    }, jobId);
 
     res.status(202).json({
       status: "queued",
@@ -179,6 +217,35 @@ export const regenerateKit = async (req, res) => {
   } catch (error) {
     console.error("Regenerate kit error:", error);
     res.status(500).json({ message: "Failed to regenerate kit" });
+  }
+};
+
+export const cancelKit = async (req, res) => {
+  try {
+    const kit = await Kit.findOne({ _id: req.params.id, user: req.user.id });
+    if (!kit) return res.sendStatus(404);
+    if (!KIT_ACTIVE_STATUSES.includes(kit.status)) {
+      return res.status(409).json({ code: "KIT_NOT_CANCELLABLE", message: "This kit is not being generated." });
+    }
+
+    const job = kit.jobId ? await getKitJob(kit.jobId) : null;
+    const jobState = job ? await job.getState() : "unknown";
+    const now = new Date();
+    const cancelled = await Kit.findOneAndUpdate(
+      { _id: kit._id, user: req.user.id, status: { $in: KIT_ACTIVE_STATUSES }, jobId: kit.jobId },
+      { status: "cancelled", cancellationRequestedAt: now, cancelledAt: now, progress: 0 },
+      { new: true },
+    );
+    if (!cancelled) return res.status(409).json({ code: "KIT_NOT_CANCELLABLE", message: "This kit is not being generated." });
+
+    if (job && ["waiting", "delayed", "prioritized", "paused"].includes(jobState)) {
+      await job.remove();
+    }
+    await emitKitUpdate(cancelled._id, "cancelled", 0, cancelled.requestedSection, { section: cancelled.requestedSection, status: "cancelled" });
+    return res.status(jobState === "active" ? 202 : 200).json({ _id: cancelled._id, status: "cancelled", pending: jobState === "active" });
+  } catch (error) {
+    console.error("Cancel kit error:", error);
+    return res.status(500).json({ message: "Failed to cancel kit" });
   }
 };
 

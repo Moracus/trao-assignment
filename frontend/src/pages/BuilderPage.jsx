@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { connectKitEvents, getKit, regenerateKit } from "../api/kits";
+import { cancelKit, connectKitEvents, getKit, regenerateKit } from "../api/kits";
 import BuilderLayout from "../features/builder/BuilderLayout";
 import useBuilder, {
   mergeCompanyBrief,
@@ -117,6 +117,7 @@ export default function BuilderPage() {
   const [kitData, setKitData] = useState(emptyKit);
   const [activeSection, setActiveSection] = useState("brief");
   const [regeneratingSection, setRegeneratingSection] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
   const [cooldownUntil, setCooldownUntil] = useState(() => {
     const stored = readStoredBuilderState(kitId);
     return stored.cooldownUntil ?? 0;
@@ -175,6 +176,7 @@ export default function BuilderPage() {
 
       const payloadSection = normalizeBuilderSection(payload.section ?? "");
       const currentSection = normalizeBuilderSection(activeSection);
+      const isCurrentRegeneration = regeneratingSection === "full" || payloadSection === normalizeBuilderSection(regeneratingSection ?? "");
 
       if (payloadSection && payloadSection === currentSection) {
         const nextState =
@@ -202,10 +204,18 @@ export default function BuilderPage() {
         );
       }
 
-      if (payload.status === "failed") {
+      if (["completed", "failed", "cancelled"].includes(payload.status) && isCurrentRegeneration) {
         setRegeneratingSection(null);
         writeStoredBuilderState(kitId, { regeneratingSection: null });
-        if (payloadSection === "companyBrief") {
+        if (regeneratingSection === "full") refreshKit();
+      }
+
+      if (payload.status === "failed" || payload.status === "cancelled") {
+        setRegeneratingSection(null);
+        writeStoredBuilderState(kitId, { regeneratingSection: null });
+        if (payload.status === "cancelled") {
+          toast.info("Regeneration cancelled.");
+        } else if (payloadSection === "companyBrief") {
           toast.error(
             `Company Brief are not meant to regenerate, you can edt or regenerate the full kit.`,
           );
@@ -222,6 +232,25 @@ export default function BuilderPage() {
 
     return () => es.close();
   }, [kitId, activeSection]);
+
+  useEffect(() => {
+    if (!kitId || !regeneratingSection) return undefined;
+    const poll = async () => {
+      try {
+        const fresh = await getKit(kitId);
+        setKitData(fresh ?? emptyKit);
+        if (["completed", "failed", "cancelled"].includes(fresh?.status)) {
+          setRegeneratingSection(null);
+          writeStoredBuilderState(kitId, { regeneratingSection: null });
+        }
+      } catch {
+        // Keep controls available; the SSE connection may still recover.
+      }
+    };
+    poll();
+    const timer = window.setInterval(poll, 5000);
+    return () => window.clearInterval(timer);
+  }, [kitId, regeneratingSection]);
 
   const isWithinCooldown = now < cooldownUntil;
   const cooldownRemaining = Math.max(0, cooldownUntil - now);
@@ -244,6 +273,11 @@ export default function BuilderPage() {
       return;
     }
 
+    if (section === "companyBrief" && !fallbackFullKit) {
+      toast.info("Company brief is editable directly; regenerate the full kit to refresh it.");
+      return;
+    }
+
     if (fallbackFullKit) {
       const confirmed = window.confirm(
         "Regenerate the full kit? This will refresh the full Builder content.",
@@ -257,12 +291,6 @@ export default function BuilderPage() {
     });
 
     try {
-      if (section === "companyBrief") {
-        toast.info(
-          "company brief are not meant to regenerate, you can only edit this",
-        );
-        return;
-      }
       await regenerateKit(kitId, fallbackFullKit ? "full" : section);
       toast.info(
         fallbackFullKit
@@ -280,9 +308,21 @@ export default function BuilderPage() {
           closeOnClick: false,
         },
       );
-    } finally {
+    }
+  };
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      await cancelKit(kitId);
       setRegeneratingSection(null);
       writeStoredBuilderState(kitId, { regeneratingSection: null });
+      setKitData((current) => ({ ...current, status: "cancelled" }));
+      toast.info("Regeneration cancelled.");
+    } catch {
+      toast.error("Cancellation could not be confirmed. Please try again.");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -299,6 +339,8 @@ export default function BuilderPage() {
       onSectionChange={setActiveSection}
       onRegenerate={() => handleRegenerate(false)}
       onFullKitRegenerate={() => handleRegenerate(true)}
+      onCancel={handleCancel}
+      cancelling={cancelling}
     >
       {(section) => {
         if (section === "brief") {

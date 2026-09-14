@@ -4,16 +4,11 @@ import { z } from "zod";
 import { openai, MODEL } from "./openai.js";
 import { withRetry } from "./retry.js";
 import { findCoverageGaps } from "../deterministic/coverage.js";
+import { KIT_QUESTION_CATEGORIES } from "../../constants/kitEnums.js";
 
 const QuestionSchema = z.object({
   requirement_ids: z.array(z.string()),
-  category: z.enum([
-    "technical",
-    "behavioural",
-    "system-design",
-    "company-fit",
-    "others"
-  ]),
+  category: z.enum(KIT_QUESTION_CATEGORIES),
   prompt: z.string(),
   answer_outline: z.string(),
   difficulty: z.number().int().min(1).max(3),
@@ -42,13 +37,7 @@ const JSON_SCHEMA = {
             },
             category: {
               type: "string",
-              enum: [
-                "technical",
-                "behavioural",
-                "system-design",
-                "company-fit",
-                "others"
-              ],
+              enum: KIT_QUESTION_CATEGORIES,
             },
             prompt: { type: "string" },
             answer_outline: { type: "string" },

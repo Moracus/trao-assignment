@@ -5,6 +5,11 @@ import { generateCompanyBrief } from "../llm/company.js";
 import { buildQuestionSet } from "../llm/questions.js";
 import { getFlashcardsForRequirement } from "../knowledge/service.js";
 import { buildSchedule } from "../deterministic/scheduler.js";
+import {
+  normalizeQuestionCategory,
+  normalizeRequirementKind,
+  normalizeRequirementPriority,
+} from "../../constants/kitEnums.js";
 
 const GENERATION_PLACEHOLDER = "couldn't generate, edit or regenerate";
 
@@ -12,15 +17,15 @@ const assignRequirementIds = (reqs = []) =>
   reqs.map((r, i) => ({
     id: r.id ?? `r${i + 1}`,
     text: String(r.text ?? "").trim(),
-    kind: r.kind ?? "others",
-    priority: r.priority ?? "nice",
+    kind: normalizeRequirementKind(r.kind),
+    priority: normalizeRequirementPriority(r.priority),
   }));
 
 const assignQuestionIds = (qs = []) =>
   qs.map((q, i) => ({
     id: q.id ?? `q${i + 1}`,
     requirement_ids: Array.isArray(q.requirement_ids) ? q.requirement_ids : [],
-    category: q.category ?? "technical",
+    category: normalizeQuestionCategory(q.category),
     prompt: String(q.prompt ?? "").trim(),
     answer_outline: String(q.answer_outline ?? "").trim(),
     difficulty: Number.isInteger(q.difficulty) ? q.difficulty : 1,
@@ -41,9 +46,9 @@ const fallbackRequirementsFromText = (jobDescription = "") => {
     { pattern: /react|next\.?js|javascript|typescript/i, text: "React / TypeScript", kind: "technical", priority: "must" },
     { pattern: /sql|postgres|database/i, text: "Database design and querying", kind: "technical", priority: "nice" },
     { pattern: /aws|cloud|kubernetes|docker/i, text: "Cloud and deployment experience", kind: "technical", priority: "nice" },
-    { pattern: /lead|mentor|ownership|cross[- ]functional/i, text: "Stakeholder communication and mentorship", kind: "soft-skill", priority: "nice" },
+    { pattern: /lead|mentor|ownership|cross[- ]functional/i, text: "Stakeholder communication and mentorship", kind: "behavioral", priority: "nice" },
     { pattern: /system design|architecture/i, text: "System design", kind: "technical", priority: "must" },
-    { pattern: /product|ux|user|customer/i, text: "User-centric product thinking", kind: "experience", priority: "nice" },
+    { pattern: /product|ux|user|customer/i, text: "User-centric product thinking", kind: "domain", priority: "nice" },
   ];
 
   const requirements = [];
@@ -61,7 +66,7 @@ const fallbackRequirementsFromText = (jobDescription = "") => {
     requirements.push({
       id: "r1",
       text: text.trim().slice(0, 120) || "Core role responsibilities",
-      kind: "others",
+      kind: "domain",
       priority: "must",
     });
   }

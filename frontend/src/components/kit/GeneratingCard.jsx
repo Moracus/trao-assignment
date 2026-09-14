@@ -1,7 +1,8 @@
 import { Card, CardContent } from "../ui/Card";
+import Button from "../ui/Button";
 
 
-export default function GeneratingCard({ company, progress,status="generating" }) {
+export default function GeneratingCard({ company, progress, status="generating", onCancel, cancelling = false }) {
   return (
     <Card>
       <CardContent className="space-y-4 p-6">
@@ -9,6 +10,10 @@ export default function GeneratingCard({ company, progress,status="generating" }
           <h3 className="font-semibold">{company || "Generating Kit"}</h3>
           <p className="text-sm text-muted">Analyzing job description...</p>
         </div>
+
+        {onCancel && <Button variant="outline" onClick={onCancel} disabled={cancelling}>
+          {cancelling ? "Cancelling…" : "Cancel"}
+        </Button>}
 
         <div className="space-y-2">
           <div className="flex justify-between text-xs">

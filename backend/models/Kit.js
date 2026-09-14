@@ -1,6 +1,12 @@
 // models/Kit.js
 
 import mongoose from "mongoose";
+import {
+  KIT_QUESTION_CATEGORIES,
+  KIT_REQUIREMENT_KINDS,
+  KIT_REQUIREMENT_PRIORITIES,
+  KIT_STATUSES,
+} from "../constants/kitEnums.js";
 
 const RequirementSchema = new mongoose.Schema(
   {
@@ -9,13 +15,13 @@ const RequirementSchema = new mongoose.Schema(
 
     kind: {
       type: String,
-      enum: ["technical", "experience", "education", "soft-skill", "others"],
+      enum: KIT_REQUIREMENT_KINDS,
       required: true,
     },
 
     priority: {
       type: String,
-      enum: ["must", "nice", "should"],
+      enum: KIT_REQUIREMENT_PRIORITIES,
       required: true,
     },
 
@@ -35,13 +41,7 @@ const QuestionSchema = new mongoose.Schema(
 
     category: {
       type: String,
-      enum: [
-        "technical",
-        "behavioural",
-        "system-design",
-        "company-fit",
-        "others",
-      ],
+      enum: KIT_QUESTION_CATEGORIES,
     },
 
     prompt: String,
@@ -169,17 +169,7 @@ const KitSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "pending",
-        "queued",
-        "crawling",
-        "extracting_role",
-        "building_questions",
-        "generating_flashcards",
-        "building_schedule",
-        "completed",
-        "failed",
-      ],
+      enum: KIT_STATUSES,
       default: "pending",
       index: true,
     },
@@ -255,6 +245,13 @@ const KitSchema = new mongoose.Schema(
     },
 
     data: mongoose.Schema.Types.Mixed,
+
+    // Execution metadata is deliberately persisted so an API process can cancel
+    // the exact BullMQ job even after a restart.
+    jobId: { type: String, index: true },
+    requestedSection: { type: String, default: null },
+    cancellationRequestedAt: { type: Date, default: null },
+    cancelledAt: { type: Date, default: null },
 
     error: {
       code: String,

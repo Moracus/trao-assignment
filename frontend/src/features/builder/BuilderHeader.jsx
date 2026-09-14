@@ -9,6 +9,8 @@ export default function BuilderHeader({
   regenerating = false,
   onRegenerate,
   onFullKitRegenerate,
+  onCancel,
+  cancelling = false,
   cooldownRemaining = 0,
 }) {
   const navigate = useNavigate();
@@ -56,10 +58,12 @@ export default function BuilderHeader({
         {regenerating ? (
           <button
             type="button"
+            onClick={onCancel}
+            disabled={cancelling}
             className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 transition"
           >
             <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-600" />
-            Regenerating...
+            {cancelling ? "Cancelling…" : "Cancel regeneration"}
           </button>
         ) : null}
 

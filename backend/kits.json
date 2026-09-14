@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-09-13T10:25:35.553Z",
+  "generated_at": "2026-09-14T19:55:52.392Z",
   "kits": [
     {
       "id": "case-01",
@@ -9,145 +9,41 @@
         "source": {
           "company": "posthog.com",
           "company_url": "https://posthog.com",
-          "role": "Software Engineer I",
+          "role": "Role details unavailable",
           "location": "",
           "jd_chars": 57,
-          "researched_at": "2026-09-13T10:23:42.700Z",
-          "pages_used": [
-            "https://posthog.com/",
-            "https://posthog.com/careers",
-            "https://posthog.com/about",
-            "https://posthog.com/handbook",
-            "https://posthog.com/handbook/why-does-posthog-exist",
-            "https://posthog.com/handbook/growth/sales/overview"
-          ]
+          "researched_at": "2026-09-14T19:55:44.515Z",
+          "pages_used": []
         },
         "company_brief": {
-          "summary": "PostHog is a developer-first product platform that helps teams make their product “self-driving.” Launched from Y Combinator in 2020 by James Hawkins and Tim Glaser, PostHog centralizes product and company data—analytics, session replay, error tracking, logs, feature flags, experiments, surveys, and managed warehouse data—so engineers can iterate faster. The company emphasizes generous free tiers (97% of users pay $0), consolidation of tools, honest communication, small autonomous teams, and automation via AI agents to investigate issues and ship code. PostHog is used by 500,000+ teams and can ingest third-party data from 700+ sources.",
-          "what_they_do": "Provide a single platform to ingest, store, and query product and company data and offer analytics, session replay, error tracking, feature flags, experiments, surveys, managed warehouse capabilities, and AI-driven agents to help teams build, analyze, and ship product changes.",
-          "sources": [
-            "https://posthog.com/",
-            "https://posthog.com/about"
-          ],
-          "edited": {
-            "summary": false,
-            "what_they_do": false
-          },
-          "pinned": false
+          "summary": "",
+          "what_they_do": "couldn't generate, edit or regenerate",
+          "sources": []
         },
         "role": {
-          "title": "Software Engineer I",
-          "seniority": "Junior",
+          "title": "Role details unavailable",
+          "seniority": "Unknown",
           "responsibilities": [
-            "Develop and maintain web applications using React (frontend) and Node.js (backend).",
-            "Implement new features, fix bugs, and optimize application performance.",
-            "Write and maintain tests and technical documentation.",
-            "Collaborate with product, design, and engineering team members and participate in code reviews."
+            "Software Engineer I",
+            "We are looking for React and Node..."
           ],
           "requirements": [
             {
               "id": "r1",
-              "text": "Experience with React",
-              "kind": "technical",
-              "priority": "must"
-            },
-            {
-              "id": "r2",
-              "text": "Experience with Node.js",
+              "text": "React / TypeScript",
               "kind": "technical",
               "priority": "must"
             }
           ]
         },
-        "questions": [
-          {
-            "id": "q1",
-            "requirement_ids": [
-              "r1"
-            ],
-            "category": "technical",
-            "prompt": "PostHog surfaces large lists (events, sessions, recordings) in the UI. Describe how you would optimize React rendering and data flow for a high‑volume dashboard that must remain snappy as item counts grow. Be specific about techniques, tradeoffs, and when you would apply them.",
-            "answer_outline": "- Use windowing/virtualization (react-window/react-virtualized) for long lists to limit DOM nodes\n- Memoize components with React.memo and avoid passing new function/objects as props (useCallback/useMemo)\n- Split UI into small pure components to reduce re-render scope\n- Use selector libraries (reselect) or immutable data to minimize shallow-compare churn\n- Lazy-load heavy subtrees and code-split large pages\n- Batch state updates and co-locate local state to reduce unnecessary global updates\n- Profile with React Profiler and browser devtools to find actual bottlenecks before optimizing\n- Consider server-side rendering / streaming for first paint improvements, but weigh hydration complexity\n- Tradeoffs: virtualization complicates focus/accessibility/measurement; SSR adds infra complexity",
-            "difficulty": 3
-          },
-          {
-            "id": "q2",
-            "requirement_ids": [
-              "r1"
-            ],
-            "category": "technical",
-            "prompt": "Design a reusable React component library for PostHog's UI that must support feature flags, instrumentation (analytics events), theming, and accessibility. How would you structure the library, expose APIs/hooks, and ensure safe adoption across multiple teams?",
-            "answer_outline": "- Structure: core primitive components (Button, Input, Modal) + higher-level composed components\n- Expose APIs: strongly typed props, ThemeProvider + tokens, useFeatureFlag(key) hook, useTelemetry(eventName, props) hook\n- Internals: keep components small/pure, avoid global side effects, use CSS-in-JS or design tokens for theming\n- Instrumentation: provide optional telemetry hook that teams can opt into; allow pluggable telemetry backend\n- Distribution/versioning: mono-repo packages or npm scoped package, semantic versioning, changelogs\n- Testing & safety: unit + integration tests, storybook with accessibility checks, migration docs, deprecation policy\n- Adoption: clear docs, codemods for breaking changes, example apps, CI checks for violating conventions",
-            "difficulty": 3
-          },
-          {
-            "id": "q3",
-            "requirement_ids": [
-              "r2"
-            ],
-            "category": "technical",
-            "prompt": "PostHog needs backend services that ingest high-throughput event streams from many sources. Sketch a Node.js service architecture to accept, validate, and persist events at scale. Explain choices for concurrency, batching, fault tolerance, and how you'd keep the Node process healthy under load.",
-            "answer_outline": "- API layer: stateless HTTP/GRPC endpoints behind load balancers; use keep-alive and HTTP/2 where appropriate\n- Ingress: validate and normalize input quickly; reject early for invalid payloads\n- Backpressure & buffering: push events into durable queue (Kafka/Rabbit/SQS) rather than writing DB synchronously\n- Worker pool: separate consumers/processors that batch events and persist to storage/warehouse\n- Concurrency: use Node clustering or multiple process instances; avoid long synchronous CPU work in event loop\n- Batching: group writes to reduce IO; tune batch size/latency tradeoff\n- Fault tolerance: idempotency keys, retries with exponential backoff, DLQs for poison messages\n- Health: monitor event loop lag, memory, and GC; limit per-process concurrency; use worker threads for CPU-bound tasks\n- Observability: metrics, tracing, and logs for throughput, error rates, latencies",
-            "difficulty": 3
-          },
-          {
-            "id": "q4",
-            "requirement_ids": [
-              "r2"
-            ],
-            "category": "technical",
-            "prompt": "You're seeing intermittent memory growth and CPU spikes in a long‑running Node.js service that runs background jobs (e.g., enrichment, ML inference). How would you investigate and remediate these reliability issues?",
-            "answer_outline": "- Reproduce or capture occurrences: add longer retention of metrics (heap size, RSS, event loop lag, CPU)\n- Profiling: take heap snapshots and CPU profiles (Chrome DevTools, clinic.js, node --inspect) to identify leaking objects and hot functions\n- Analyze code patterns: look for unbounded caches, global arrays/maps, event listeners not removed, timers, unresolved promises\n- Fixes: free caches or introduce size limits/TTL, remove listeners, ensure proper stream/connection cleanup\n- GC/Runtime tuning: if needed, tune Node memory flags (--max-old-space-size) but prioritize root-cause fixes\n- Resilience: add process-level supervisors (PM2/systemd/k8s liveness probes) with graceful shutdown and draining\n- Prevent regressions: add live memory/CPU alerts, automated load tests, and CI resource-usage checks",
-            "difficulty": 3
-          }
-        ],
+        "questions": [],
         "flashcards": [
           {
             "id": "f1",
-            "front": "What are the core concepts of React (components, props, state, JSX, virtual DOM)?",
-            "back": "Components are the building blocks (functional or class) that return UI. Props are read-only inputs passed from parent to child. State is local, mutable data inside a component updated via setState (class) or useState (hooks). JSX is a syntax that compiles to React.createElement calls. The virtual DOM is an in-memory representation React diffs against the real DOM and applies minimal updates via reconciliation. Data flows unidirectionally (top-down).",
+            "front": "React / TypeScript",
+            "back": "Explain how this requirement shows up in practice, why it matters, and how you would discuss it in an interview.",
             "requirement_ids": [
               "r1"
-            ]
-          },
-          {
-            "id": "f2",
-            "front": "What are React Hooks, their rules, and common hooks to know?",
-            "back": "Hooks let functional components have state and lifecycle behavior. Common hooks: useState (state), useEffect (side effects and cleanup; dependency array controls when it runs), useRef (persistent mutable refs), useContext (consume Context), useReducer (complex state), useMemo/useCallback (memoization). Rules: call hooks only at the top level and only from React functions or custom hooks; custom hooks must start with \"use\". Manage effect dependencies carefully to avoid stale closures or infinite loops.",
-            "requirement_ids": [
-              "r1"
-            ]
-          },
-          {
-            "id": "f3",
-            "front": "How does reconciliation and list keying work, and what are common React performance optimizations?",
-            "back": "Reconciliation diffs virtual DOM trees to compute updates; stable, unique keys on list items let React match elements across renders. Avoid using array index as key when items can reorder. Optimizations: prevent unnecessary re-renders with React.memo (components), useMemo/useCallback (cache expensive computations or stable callbacks), split state to minimize affected subtrees, lazy-load routes/components with React.lazy + Suspense, use windowing/virtualization (react-window) for long lists, and profile with React DevTools to find bottlenecks. Also avoid heavy work in render and prefer async/debounced updates when appropriate.",
-            "requirement_ids": [
-              "r1"
-            ]
-          },
-          {
-            "id": "f4",
-            "front": "What is the Node.js event loop and how does it handle asynchronous I/O?",
-            "back": "Node.js uses a single-threaded, event-driven model implemented on libuv. The event loop cycles through phases (timers, pending callbacks, idle/prepare, poll, check, close callbacks) and runs callbacks when events are ready. Non-blocking I/O requests are handed to the kernel or the libuv thread pool; when they complete, their callbacks are queued to the appropriate event-loop phase. Microtasks (Promise reactions and process.nextTick) run between phases, with process.nextTick prioritized. Because JS runs on one thread, long CPU-bound work blocks the loop — such work should be offloaded to worker threads or separate processes.",
-            "requirement_ids": [
-              "r2"
-            ]
-          },
-          {
-            "id": "f5",
-            "front": "What are Node.js Streams and how does backpressure work?",
-            "back": "Streams are abstract interfaces for working with streaming data: Readable, Writable, Duplex, and Transform. They allow processing data in chunks instead of buffering whole payloads. Backpressure prevents fast producers from overwhelming slow consumers: when writable.write() returns false, the producer should stop writing and wait for the 'drain' event. Pipe() handles backpressure automatically by pausing the readable stream when the writable buffer is full and resuming it on 'drain'. highWaterMark controls internal buffer thresholds.",
-            "requirement_ids": [
-              "r2"
-            ]
-          },
-          {
-            "id": "f6",
-            "front": "What's the difference between CommonJS (require/module.exports) and ECMAScript Modules (import/export) in Node.js?",
-            "back": "CommonJS (CJS) uses require() and module.exports, is loaded synchronously at runtime, and is the historical Node format. ECMAScript Modules (ESM) use import/export, are statically analyzable, support top-level await, and use live bindings. ESM files are .mjs or governed by package.json type: \"module\" (or by explicit extension). Interop caveats: default export mapping differs, dynamic import() is async, and cyclic dependency behavior and evaluation timing differ. You can mix using dynamic import or createRequire, but prefer ESM for modern projects.",
-            "requirement_ids": [
-              "r2"
             ]
           }
         ],
@@ -156,35 +52,27 @@
           "days": [
             {
               "day": 1,
-              "focus": "Experience with React",
-              "question_ids": [
-                "q1"
-              ],
-              "minutes": 40
+              "focus": "Revision",
+              "question_ids": [],
+              "minutes": 0
             },
             {
               "day": 2,
-              "focus": "Experience with React",
-              "question_ids": [
-                "q2"
-              ],
-              "minutes": 40
+              "focus": "Revision",
+              "question_ids": [],
+              "minutes": 0
             },
             {
               "day": 3,
-              "focus": "Experience with Node.js",
-              "question_ids": [
-                "q3"
-              ],
-              "minutes": 40
+              "focus": "Revision",
+              "question_ids": [],
+              "minutes": 0
             },
             {
               "day": 4,
-              "focus": "Experience with Node.js",
-              "question_ids": [
-                "q4"
-              ],
-              "minutes": 40
+              "focus": "Revision",
+              "question_ids": [],
+              "minutes": 0
             },
             {
               "day": 5,
@@ -195,10 +83,17 @@
           ]
         },
         "coverage": {
-          "uncovered_requirement_ids": [],
+          "uncovered_requirement_ids": [
+            "r1"
+          ],
           "passes": 1
         },
-        "retrievalWarnings": []
+        "retrievalWarnings": [
+          "DNS lookup failed for posthog.com",
+          "Role extraction failed: Connection error.",
+          "Question generation failed: Connection error.",
+          "Flashcard generation failed: Connection error."
+        ]
       },
       "error": null
     },
@@ -209,149 +104,40 @@
         "source": {
           "company": "about.gitlab.com",
           "company_url": "https://about.gitlab.com",
-          "role": "Backend Engineer",
+          "role": "Role details unavailable",
           "location": "",
           "jd_chars": 42,
-          "researched_at": "2026-09-13T10:24:38.298Z",
-          "pages_used": [
-            "https://about.gitlab.com/",
-            "https://about.gitlab.com/jobs/",
-            "https://about.gitlab.com/blog/",
-            "https://about.gitlab.com/gitlab-duo-agent-platform/",
-            "https://about.gitlab.com/why-gitlab/",
-            "https://about.gitlab.com/"
-          ]
+          "researched_at": "2026-09-14T19:55:48.474Z",
+          "pages_used": []
         },
         "company_brief": {
-          "summary": "GitLab is an enterprise platform for agentic software engineering that combines planning, source control, CI/CD, security, and AI-driven automation. GitLab’s stated mission is to unlock every team to ship software “at the speed of imagination.” The product is used at scale (noted as 50+ million people and more than 100,000 organizations) and GitLab operates as an all-remote company with a handbook-first approach and defined operating principles.",
-          "what_they_do": "GitLab provides an end-to-end DevSecOps platform, highlighted by the GitLab Duo Agent Platform for AI-powered software delivery across the entire lifecycle. The platform unifies projects, releases, and code into one data plane and offers agentic workflows, an AI Catalog, and flows for multi-step automation and event-driven execution. Security is built in (consolidating scanners such as SAST, SCA, Secret Detection, and DAST), with findings surfaced in merge requests and IDEs and controls for compliance and audit-ready evidence. Enterprise features include policy-driven AI governance, full traceability of flow sessions, support for self-hosted models, and flexible pricing (GitLab Flex). GitLab also positions the platform to meet industry-specific regulatory and delivery requirements for Financial Services, Public Sector, Telecommunications, Automotive, and Education.",
-          "sources": [
-            "https://about.gitlab.com/",
-            "https://about.gitlab.com/blog/",
-            "https://about.gitlab.com/gitlab-duo-agent-platform/",
-            "https://about.gitlab.com/why-gitlab/",
-            "https://about.gitlab.com/"
-          ],
-          "edited": {
-            "summary": false,
-            "what_they_do": false
-          },
-          "pinned": false
+          "summary": "",
+          "what_they_do": "couldn't generate, edit or regenerate",
+          "sources": []
         },
         "role": {
-          "title": "Backend Engineer",
+          "title": "Role details unavailable",
           "seniority": "Unknown",
           "responsibilities": [
-            "Develop and maintain backend services",
-            "Design and implement APIs",
-            "Deploy and operate services on Kubernetes",
-            "Optimize performance, reliability, and scalability of backend systems",
-            "Collaborate with cross-functional teams (frontend, QA, SRE)"
+            "Backend Engineer with Go and Kubernetes..."
           ],
           "requirements": [
             {
               "id": "r1",
-              "text": "Proficiency with Go (Golang)",
+              "text": "Cloud and deployment experience",
               "kind": "technical",
-              "priority": "must"
-            },
-            {
-              "id": "r2",
-              "text": "Experience with Kubernetes (deploying and operating services)",
-              "kind": "technical",
-              "priority": "must"
+              "priority": "nice"
             }
           ]
         },
-        "questions": [
-          {
-            "id": "q1",
-            "requirement_ids": [
-              "r1"
-            ],
-            "category": "technical",
-            "prompt": "Design and outline a Go (Golang) worker-pool that processes events from an internal event queue for an agent in the GitLab Duo Agent Platform. Describe goroutine lifecycle management, how you would handle cancellation and errors, and how you would apply backpressure when the downstream is slow.",
-            "answer_outline": "- Use a fixed-size pool of worker goroutines and a buffered channel as the event queue.\n- Use context.Context for cancellation propagation; workers select on ctx.Done() and queue channel.\n- Use sync.WaitGroup to wait for worker shutdown; ensure no goroutine leaks by closing queue and signaling done.\n- Error handling: per-job error channel or aggregated error collector; surface fatal vs transient errors.\n- Backpressure: bounded queue, return error to producer when full or use rate-limiter (token bucket) and exponential backoff.\n- Implement retries with capped attempts and jitter; use circuit-breaker for downstream failures.\n- Testing: use go test with deterministic hooks, race detector, and benchmarks; monitor metrics (queue length, worker utilization).",
-            "difficulty": 3
-          },
-          {
-            "id": "q2",
-            "requirement_ids": [
-              "r1"
-            ],
-            "category": "technical",
-            "prompt": "Explain how Go's memory management and garbage collector behavior can affect a long-running agent process. Describe practical techniques and tools you would use to profile and reduce memory usage in a production Go service.",
-            "answer_outline": "- Go's GC is concurrent but pauses occur; large allocation rates increase GC frequency and CPU overhead.\n- Avoid excessive short-lived allocations; prefer reuse (sync.Pool) for frequently allocated objects.\n- Minimize cross-package and global references that keep large objects alive; watch slices/strings retaining backing arrays.\n- Use escape analysis to reduce heap allocations; profile with pprof (heap/allocs) and runtime/metrics.\n- Identify memory leaks via pprof heap snapshots, goroutine dumps, and compare over time.\n- Tune GOGC cautiously to control GC frequency; measure CPU vs memory trade-offs.\n- Use benchmarks and tracing to validate fixes; consider reducing object sizes or streaming to avoid large buffers in memory.",
-            "difficulty": 3
-          },
-          {
-            "id": "q3",
-            "requirement_ids": [
-              "r2"
-            ],
-            "category": "technical",
-            "prompt": "You need to deploy and operate a stateful Go-based agent service across Kubernetes clusters used by customers. Describe the Kubernetes resources, deployment strategy, and runtime configurations you would apply to ensure safe rolling upgrades, zero-downtime, secure config/secrets handling, and observability.",
-            "answer_outline": "- Use Deployments (or StatefulSet if stable network identity/storage needed) with rollingUpdate strategy and appropriate maxUnavailable/maxSurge for zero-downtime.\n- Configure liveness, readiness, and startup probes; use preStop hooks and graceful termination (terminationGracePeriodSeconds) to finish work.\n- PodDisruptionBudget to protect minimum availability during maintenance.\n- Manage config with ConfigMaps and Secrets; use Kubernetes Secrets with KMS or external secret store (CSI SecretStore) for customer clusters; avoid embedding secrets in images.\n- Set resource requests/limits and HPA based on CPU/memory and custom metrics; use node affinity/taints for placement.\n- Use RBAC with least privilege for service accounts.\n- Observability: expose /metrics for Prometheus, structured logs, distributed tracing; SLO/alerting for latency, error rates, and queue/backlog.\n- Deploy via Helm or Kustomize and use CI/CD pipelines with canary or blue-green releases for safer rollouts.",
-            "difficulty": 3
-          },
-          {
-            "id": "q4",
-            "requirement_ids": [
-              "r2"
-            ],
-            "category": "technical",
-            "prompt": "While rolling out a new release, multiple pods enter CrashLoopBackOff on a subset of nodes. Walk through a prioritized troubleshooting checklist using kubectl and cluster-level diagnostics, possible root causes you would look for, and short-term mitigations plus long-term fixes to prevent recurrence.",
-            "answer_outline": "- Quick triage steps: kubectl get pods, kubectl describe pod, kubectl logs (including previous), kubectl get events; check node status (kubectl describe node) and kubelet logs.\n- Common root causes: image pull failures, OOMKilled (check container status), filesystem/mount or PV issues, misconfigured env/secrets, incorrect args leading to immediate exit, RBAC/service account token problems, CNI/network issues.\n- Check node-level problems: disk pressure, insufficient inodes, kernel OOM, or taints causing scheduling anomalies.\n- Short-term mitigations: scale down rollout, roll back to previous image, cordon/drain affected nodes, restart kubelet or node if needed, adjust resource requests/limits, fix or rollback config.\n- Long-term fixes: add e2e/upgrade/cluster tests, set resource requests/limits and PodDisruptionBudgets, improve CI image validation, monitor node health and autoscaling, use readiness probes and gradual canary rollouts.\n- Capture artifacts (pod logs, kubelet/journal, events) for postmortem and add alerts for similar failure signatures.",
-            "difficulty": 3
-          }
-        ],
+        "questions": [],
         "flashcards": [
           {
             "id": "f1",
-            "front": "Explain goroutines and channels. How do they differ from OS threads, and when should you use channels vs sync primitives?",
-            "back": "Goroutines are lightweight user-space threads managed by the Go runtime scheduler (M:N scheduling) — thousands can run concurrently on a few OS threads. Channels are typed conduits for communication and synchronization between goroutines. Key points: use goroutines for concurrent tasks that are I/O-bound or easily decomposed; channels to pass data and synchronize without shared memory; use buffered channels for decoupling producers/consumers; select lets you wait on multiple channel ops; closing a channel signals no more values (don't close unless you are the sender); range on a channel reads until closed; deadlocks occur if all goroutines block. Use sync primitives (Mutex, Cond, WaitGroup, Atomic) when you need fine-grained control or to protect shared mutable state — channels are higher-level and encourage message-passing style.",
+            "front": "Cloud and deployment experience",
+            "back": "Explain how this requirement shows up in practice, why it matters, and how you would discuss it in an interview.",
             "requirement_ids": [
               "r1"
-            ]
-          },
-          {
-            "id": "f2",
-            "front": "Describe Go's type system basics: interfaces, method receivers, pointer vs value behavior, and common pitfalls (nil interfaces, embedding).",
-            "back": "Interfaces are satisfied implicitly: a type implements an interface by implementing its methods. Method receivers can be value or pointer: value receivers get a copy (suitable for immutable or small types), pointer receivers can modify the receiver and avoid copying large structs. A pointer receiver means only *T implements the interface if methods are defined on *T; value receiver methods make both T and *T implement the interface. Nil interface pitfall: an interface value is a (type, value) pair — an interface holding a typed nil (e.g., (*T)(nil)) is not equal to nil. Embedding promotes fields/methods from embedded types (composition) and can be used to implement forwarding; beware method name collisions. Use type assertions (value, ok) or type switches to inspect concrete types.",
-            "requirement_ids": [
-              "r1"
-            ]
-          },
-          {
-            "id": "f3",
-            "front": "What are important memory and tooling considerations in Go: GC, escape analysis, slices vs arrays, and essential tools/commands?",
-            "back": "Go has a garbage collector optimized for low pause times; write memory-friendly code (avoid large allocations and long-lived roots). Escape analysis determines whether a variable is allocated on the stack or heap — prefer stack allocation by keeping values local and avoiding taking addresses that outlive scope. Slices are flexible, referencing an underlying array with length and capacity; slicing may keep the underlying array alive (leaking memory) if small subslices reference large arrays. Use make for slices, maps, channels; use new rarely (zeroed pointer). Essential tools: go mod (dependency/versioning), go build/run, go test (unit tests and benchmarks), go vet (static checks), go fmt (formatting), go tool pprof (profiling), and -race (race detector). For performance, profile CPU/heap and fix hotspots rather than micro-optimize.",
-            "requirement_ids": [
-              "r1"
-            ]
-          },
-          {
-            "id": "f4",
-            "front": "Explain the high-level Kubernetes architecture and the role of its main components.",
-            "back": "Kubernetes has a control plane and worker nodes. Control plane: API Server (central control, REST interface), etcd (cluster state store), Controller Manager (reconciles desired state), Scheduler (assigns pods to nodes). Node components: kubelet (manages pods/containers on the node), kube-proxy (service networking/routing), container runtime (e.g., containerd). Namespaces provide multi-tenancy/segmentation; labels/selectors enable grouping. For HA, run multiple control-plane instances with etcd clustered and use load-balancing for the API server.",
-            "requirement_ids": [
-              "r2"
-            ]
-          },
-          {
-            "id": "f5",
-            "front": "What are the core API objects for deploying apps and how do you choose between them?",
-            "back": "Core objects: Pod (single or co-located containers), ReplicaSet (ensures N pod replicas), Deployment (declarative rollout/rollbacks for stateless apps), StatefulSet (stable network IDs and storage for stateful apps), DaemonSet (one pod per node), Job/CronJob (batch tasks). Services expose pods: ClusterIP (in-cluster), NodePort, LoadBalancer; Ingress manages HTTP routing. ConfigMap/Secret inject config and sensitive data. PersistentVolume/PersistentVolumeClaim + StorageClass provide persistent storage. Use Deployment for stateless, StatefulSet for ordered startup/unique identities/persistent volumes, DaemonSet for node-level agents.",
-            "requirement_ids": [
-              "r2"
-            ]
-          },
-          {
-            "id": "f6",
-            "front": "Key operational commands and troubleshooting steps for common issues in Kubernetes.",
-            "back": "Useful kubectl: get/describe/logs/exec/port-forward/top -n <ns>. Check pod status/events (kubectl describe pod, kubectl get events) for CrashLoopBackOff or probe failures. Use kubectl logs -c <container>, kubectl exec to inspect container. For rollout issues: kubectl rollout status/undo. Inspect nodes (kubectl get nodes, describe node) for Ready, disk pressure, or Kubelet errors. Check resource limits and OOMKills, use kubectl top for metrics. Network problems: check CNI, kube-proxy, and DNS (coredns). Storage issues: verify PVC->PV binding and access modes. For RBAC issues: review Roles/ClusterRoles and RoleBindings. Collect events, describe resources, and reproduce with simplified manifests to isolate faults.",
-            "requirement_ids": [
-              "r2"
             ]
           }
         ],
@@ -360,36 +146,36 @@
           "days": [
             {
               "day": 1,
-              "focus": "Proficiency with Go (Golang)",
-              "question_ids": [
-                "q1"
-              ],
-              "minutes": 40
+              "focus": "Revision",
+              "question_ids": [],
+              "minutes": 0
             },
             {
               "day": 2,
-              "focus": "Proficiency with Go (Golang)",
-              "question_ids": [
-                "q2"
-              ],
-              "minutes": 40
+              "focus": "Revision",
+              "question_ids": [],
+              "minutes": 0
             },
             {
               "day": 3,
-              "focus": "Experience with Kubernetes (deploying and operating services)",
-              "question_ids": [
-                "q3",
-                "q4"
-              ],
-              "minutes": 80
+              "focus": "Revision",
+              "question_ids": [],
+              "minutes": 0
             }
           ]
         },
         "coverage": {
-          "uncovered_requirement_ids": [],
+          "uncovered_requirement_ids": [
+            "r1"
+          ],
           "passes": 1
         },
-        "retrievalWarnings": []
+        "retrievalWarnings": [
+          "DNS lookup failed for about.gitlab.com",
+          "Role extraction failed: Connection error.",
+          "Question generation failed: Connection error.",
+          "Flashcard generation failed: Connection error."
+        ]
       },
       "error": null
     }

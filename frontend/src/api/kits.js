@@ -36,6 +36,11 @@ export const regenerateKit = async (id, section = null) => {
   return response.data;
 };
 
+export const cancelKit = async (id) => {
+  const response = await api.post(`/kits/${id}/cancel`);
+  return response.data;
+};
+
 // Builder endpoints
 export const updateQuestion = async (kitId, questionId, patch) => {
   const response = await api.patch(`/kits/${kitId}/builder/questions/${questionId}`, patch);
@@ -86,8 +91,12 @@ export const updateCompanyBrief = async (kitId, patch) => {
 export const connectKitEvents = (id, onMessage) => {
   const base = import.meta.env.VITE_API_URL;
   let retryCount = 0;
+  let retryTimer = null;
+  let closed = false;
+  let activeSource = null;
 
   const connect = () => {
+    if (closed) return null;
     const es = new EventSource(`${base}/kits/${id}/events`, {
       withCredentials: true,
     });
@@ -99,13 +108,20 @@ export const connectKitEvents = (id, onMessage) => {
 
     es.onerror = () => {
       es.close();
+      if (closed) return;
       retryCount += 1;
       const delay = Math.min(1000 * retryCount, 5000);
-      setTimeout(connect, delay);
+      retryTimer = setTimeout(connect, delay);
     };
-
-    return es;
+    activeSource = es;
   };
 
-  return connect();
+  connect();
+  return {
+    close() {
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      activeSource?.close();
+    },
+  };
 };

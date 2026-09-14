@@ -1,25 +1,21 @@
 import { z } from "zod";
 import { openai, MODEL } from "./openai.js";
 import { withRetry } from "./retry.js";
+import {
+  KIT_REQUIREMENT_KINDS,
+  KIT_REQUIREMENT_PRIORITIES,
+} from "../../constants/kitEnums.js";
 
 const RequirementSchema = z.object({
   text: z.string().min(2),
-  kind: z.enum(["technical", "experience", "education", "soft-skill","others"]),
-  priority: z.enum(["must", "should", "nice"]),
+  kind: z.enum(KIT_REQUIREMENT_KINDS),
+  priority: z.enum(KIT_REQUIREMENT_PRIORITIES),
 });
 
 const RoleSchema = z.object({
   title: z.string(),
-  seniority: z.enum([
-    "Intern",
-    "Junior",
-    "Mid",
-    "Senior",
-    "Lead",
-    "Staff",
-    "Principal",
-    "Unknown",
-  ]),
+  // Appendix A specifies this as a string, not a closed enum.
+  seniority: z.string(),
   responsibilities: z.array(z.string()),
   requirements: z.array(RequirementSchema),
 });
@@ -33,16 +29,6 @@ const JSON_SCHEMA = {
       title: { type: "string" },
       seniority: {
         type: "string",
-        enum: [
-          "Intern",
-          "Junior",
-          "Mid",
-          "Senior",
-          "Lead",
-          "Staff",
-          "Principal",
-          "Unknown",
-        ],
       },
       responsibilities: {
         type: "array",
@@ -56,11 +42,11 @@ const JSON_SCHEMA = {
             text: { type: "string" },
             kind: {
               type: "string",
-              enum: ["technical", "experience", "education", "soft-skill","others"],
+              enum: KIT_REQUIREMENT_KINDS,
             },
             priority: {
               type: "string",
-              enum: ["must", "should", "nice"],
+              enum: KIT_REQUIREMENT_PRIORITIES,
             },
           },
           required: ["text", "kind", "priority"],
